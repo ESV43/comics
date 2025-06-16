@@ -1,7 +1,7 @@
 
 import { ComicStyle, ComicEra, AspectRatio, ImageGenerationModel } from './types';
 
-export const MAX_COMIC_PAGES = 75;
+export const MAX_COMIC_PAGES = 175;
 export const DEFAULT_NUM_PAGES = 6;
 
 export const AVAILABLE_STYLES: { value: ComicStyle; label: string }[] = [
