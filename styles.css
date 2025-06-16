@@ -1,19 +1,22 @@
 :root {
-  /* Material 3 Expressive Purple Theme - Light */
+  /* Material 3 Expressive Colourful Theme - Light */
+  /* Primary: Vibrant Purple (Original) */
   --md-sys-color-primary: #6750A4;
   --md-sys-color-on-primary: #FFFFFF;
   --md-sys-color-primary-container: #EADDFF;
   --md-sys-color-on-primary-container: #21005D;
 
-  --md-sys-color-secondary: #625B71;
+  /* Secondary: Expressive Teal */
+  --md-sys-color-secondary: #00897B; /* Changed */
   --md-sys-color-on-secondary: #FFFFFF;
-  --md-sys-color-secondary-container: #E8DEF8;
-  --md-sys-color-on-secondary-container: #1D192B;
+  --md-sys-color-secondary-container: #A0F2E7; /* Changed */
+  --md-sys-color-on-secondary-container: #00201D; /* Changed */
 
-  --md-sys-color-tertiary: #7D5260;
+  /* Tertiary: Warm Pink/Magenta */
+  --md-sys-color-tertiary: #E91E63; /* Changed */
   --md-sys-color-on-tertiary: #FFFFFF;
-  --md-sys-color-tertiary-container: #FFD8E4;
-  --md-sys-color-on-tertiary-container: #31111D;
+  --md-sys-color-tertiary-container: #FFD9E2; /* Changed */
+  --md-sys-color-on-tertiary-container: #3E001D; /* Changed */
 
   --md-sys-color-error: #B3261E;
   --md-sys-color-on-error: #FFFFFF;
@@ -25,21 +28,20 @@
 
   --md-sys-color-surface: #FFFBFE;
   --md-sys-color-on-surface: #1C1B1F;
-  --md-sys-color-surface-variant: #E7E0EC; /* Used for card backgrounds, text field fills */
-  --md-sys-color-on-surface-variant: #49454F; /* Text on surface-variant */
+  --md-sys-color-surface-variant: #E7E0EC;
+  --md-sys-color-on-surface-variant: #49454F;
   
-  --md-sys-color-surface-container-highest: #E6E0E9; /* Cards, dialogs */
+  --md-sys-color-surface-container-highest: #E6E0E9;
   --md-sys-color-surface-container-high: #ECE6F0;
   --md-sys-color-surface-container: #F3EDF7;
   --md-sys-color-surface-container-low: #F7F2FA;
   --md-sys-color-surface-container-lowest: #FFFFFF;
 
-
   --md-sys-color-outline: #79747E;
   --md-sys-color-outline-variant: #CAC4D0;
 
   --md-sys-color-shadow: #000000;
-  --md-sys-color-scrim: #000000; /* For modal overlays */
+  --md-sys-color-scrim: rgba(0,0,0,0.4); /* Adjusted scrim for better overlay */
 
   /* Shape */
   --md-sys-shape-corner-none: 0px;
@@ -53,7 +55,7 @@
   /* Typography */
   --md-sys-font-family-sans: 'Inter', sans-serif;
 
-  /* Elevation (Shadows) - simplified for web */
+  /* Elevation (Shadows) */
   --md-sys-elevation-level-0: none;
   --md-sys-elevation-level-1: 0px 1px 3px 1px rgba(0, 0, 0, 0.15), 0px 1px 2px 0px rgba(0, 0, 0, 0.3);
   --md-sys-elevation-level-2: 0px 2px 6px 2px rgba(0, 0, 0, 0.15), 0px 1px 2px 0px rgba(0, 0, 0, 0.3);
@@ -70,7 +72,7 @@
 }
 
 html {
-  font-size: 16px; /* Base font size */
+  font-size: 16px; 
 }
 
 body {
@@ -158,45 +160,84 @@ body {
 .form-group {
   margin-bottom: 1.5rem;
 }
+.form-group-grid { /* For grid layouts within forms */
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1.5rem;
+}
+@media (min-width: 768px) {
+  .form-group-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+}
 
 .form-label {
   display: block;
   margin-bottom: 0.5rem; /* 8px */
   color: var(--md-sys-color-on-surface-variant);
-  font-weight: 500;
-  font-size: 0.875rem; /* type-label-large */
+  font-family: var(--md-sys-font-family-sans);
+  font-size: 0.75rem; /* type-label-medium or small, M3 usually small above field */
+  padding-left: 1rem; /* if label is outside */
+}
+
+/* Input container for label above field effect */
+.form-input-container {
+  background-color: var(--md-sys-color-surface-container-lowest);
+  border-radius: var(--md-sys-shape-corner-extra-small) var(--md-sys-shape-corner-extra-small) 0 0;
+  padding: 0.25rem 1rem 0.75rem 1rem; /* Adjust padding for label inside */
+  position: relative;
+  border-bottom: 1px solid var(--md-sys-color-outline);
+}
+.form-input-container:focus-within {
+  border-bottom: 2px solid var(--md-sys-color-primary);
+}
+.form-input-container .form-label { /* Label positioned above input */
+  padding-left: 0;
+  font-size: 0.75rem; /* type-label-small */
+  color: var(--md-sys-color-primary); /* Label color on focus or when filled */
 }
 
 .form-input, .form-textarea, .form-select {
   width: 100%;
-  background-color: var(--md-sys-color-surface-container-lowest); /* Slightly lighter than surface-variant */
+  background-color: transparent; /* Input itself is transparent inside container */
   color: var(--md-sys-color-on-surface);
-  border: 1px solid var(--md-sys-color-outline);
-  border-radius: var(--md-sys-shape-corner-extra-small) var(--md-sys-shape-corner-extra-small) 0 0; /* Top corners rounded */
-  padding: 1rem; /* 16px */
+  border: none;
+  padding: 0.5rem 0 0.25rem 0; /* Adjust input padding */
   font-size: 1rem;
   line-height: 1.5;
-  transition: border-color 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
-  appearance: none; /* Removes default system appearance for select */
-  position: relative; /* For select arrow */
-}
-
-.form-input:focus, .form-textarea:focus, .form-select:focus {
   outline: none;
-  border-color: var(--md-sys-color-primary);
-  box-shadow: 0 0 0 2px var(--md-sys-color-primary-container);
+  appearance: none; 
 }
 
-.form-textarea {
-  min-height: 150px;
+.form-textarea { /* Textarea specific adjustments */
+  min-height: 120px; /* Adjusted height */
   resize: vertical;
-  border-radius: var(--md-sys-shape-corner-extra-small); /* All corners for textarea */
+  /* Textarea doesn't need the top-rounded container if it's standalone */
+  background-color: var(--md-sys-color-surface-container-lowest);
+  border: 1px solid var(--md-sys-color-outline);
+  border-radius: var(--md-sys-shape-corner-extra-small);
+  padding: 1rem;
 }
+.form-textarea:focus {
+  border-color: var(--md-sys-color-primary);
+  box-shadow: 0 0 0 1px var(--md-sys-color-primary); /* Slight outer glow */
+}
+
+.form-select { /* Select specific adjustments */
+   padding: 0.75rem 1rem; /* Consistent padding for select */
+   background-color: var(--md-sys-color-surface-container-lowest);
+   border: 1px solid var(--md-sys-color-outline);
+   border-radius: var(--md-sys-shape-corner-extra-small);
+}
+.form-select:focus {
+  border-color: var(--md-sys-color-primary);
+  box-shadow: 0 0 0 1px var(--md-sys-color-primary);
+}
+
 
 .form-select-wrapper {
   position: relative;
 }
-
 .form-select-wrapper::after { /* Custom arrow for select */
   content: 'expand_more';
   font-family: 'Material Icons Outlined';
@@ -209,14 +250,12 @@ body {
   font-size: 1.5rem;
 }
 
-.form-input[type="number"] {
-  /* Additional styling for number input if needed */
-}
 
 .input-description {
   margin-top: 0.5rem;
   font-size: 0.75rem; /* type-label-medium */
   color: var(--md-sys-color-on-surface-variant);
+  padding-left: 1rem;
 }
 
 /* Checkbox */
@@ -224,6 +263,7 @@ body {
   display: flex;
   align-items: center;
   margin-bottom: 1.5rem;
+  padding: 0.5rem 0;
 }
 .checkbox-input {
   width: 1.25rem; /* 20px */
@@ -234,8 +274,9 @@ body {
   border: 2px solid var(--md-sys-color-outline);
   background-color: var(--md-sys-color-surface);
   cursor: pointer;
-  appearance: none; /* Custom checkbox */
+  appearance: none; 
   position: relative;
+  flex-shrink: 0;
 }
 .checkbox-input:checked {
   background-color: var(--md-sys-color-primary);
@@ -251,10 +292,15 @@ body {
   font-size: 0.875rem;
   font-weight: bold;
 }
+.checkbox-input:focus {
+  outline: 2px solid var(--md-sys-color-primary-container);
+  outline-offset: 2px;
+}
 .checkbox-label {
   color: var(--md-sys-color-on-surface);
   font-size: 0.875rem; /* type-label-large */
   cursor: pointer;
+  line-height: 1.25;
 }
 
 
@@ -264,6 +310,7 @@ body {
   align-items: center;
   justify-content: center;
   padding: 0.75rem 1.5rem; /* 12px 24px */
+  font-family: var(--md-sys-font-family-sans);
   font-size: 0.875rem; /* type-label-large */
   font-weight: 600;
   border-radius: var(--md-sys-shape-corner-full); /* Pill shape */
@@ -271,8 +318,15 @@ body {
   cursor: pointer;
   text-decoration: none;
   transition: background-color 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.01em; /* M3 buttons have slight letter spacing */
+  text-transform: none; /* M3 buttons usually sentence case or title case */
+  min-height: 40px; /* M3 common height */
+}
+
+.btn .material-icons-outlined {
+    margin-right: 8px;
+    font-size: 1.125rem; /* 18px */
+    vertical-align: middle;
 }
 
 .btn-primary {
@@ -289,23 +343,39 @@ body {
 }
 
 .btn-secondary {
-  background-color: var(--md-sys-color-secondary-container);
-  color: var(--md-sys-color-on-secondary-container);
+  background-color: var(--md-sys-color-secondary);
+  color: var(--md-sys-color-on-secondary);
 }
 .btn-secondary:hover:not(:disabled) {
-  background-color: color-mix(in srgb, var(--md-sys-color-secondary-container) 90%, black);
+  background-color: color-mix(in srgb, var(--md-sys-color-secondary) 90%, black);
   box-shadow: var(--md-sys-elevation-level-1);
 }
+.btn-secondary:focus {
+  outline: 2px solid var(--md-sys-color-secondary-container);
+  outline-offset: 2px;
+}
 
-.btn-success {
-  background-color: #388E3C; /* A distinct green */
-  color: var(--md-sys-color-on-primary);
+.btn-tertiary { /* Added for more color options */
+  background-color: var(--md-sys-color-tertiary);
+  color: var(--md-sys-color-on-tertiary);
+}
+.btn-tertiary:hover:not(:disabled) {
+  background-color: color-mix(in srgb, var(--md-sys-color-tertiary) 90%, black);
+  box-shadow: var(--md-sys-elevation-level-1);
+}
+.btn-tertiary:focus {
+  outline: 2px solid var(--md-sys-color-tertiary-container);
+  outline-offset: 2px;
+}
+
+.btn-success { /* For download, distinct green */
+  background-color: #2E7D32; /* A nice M3-ish green */
+  color: #FFFFFF;
 }
 .btn-success:hover:not(:disabled) {
-  background-color: color-mix(in srgb, #388E3C 90%, black);
+  background-color: color-mix(in srgb, #2E7D32 90%, black);
   box-shadow: var(--md-sys-elevation-level-1);
 }
-
 
 .btn:disabled {
   background-color: color-mix(in srgb, var(--md-sys-color-on-surface) 12%, transparent);
@@ -321,24 +391,16 @@ body {
 /* Story Input Form Container */
 .story-input-form-container {
   background-color: var(--md-sys-color-surface-container-high);
-  padding: 2rem; /* 32px */
+  padding: 1.5rem; /* 24px */
   border-radius: var(--md-sys-shape-corner-large); /* 16px */
   box-shadow: var(--md-sys-elevation-level-2);
   max-width: 768px;
   margin: 0 auto 2rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem; /* Space between form groups */
 }
 
-/* Form Sections (grid) */
-.form-grid {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 1.5rem;
-}
-@media (min-width: 768px) {
-  .form-grid {
-    grid-template-columns: 1fr 1fr;
-  }
-}
 
 /* Error Message Styling */
 .error-message-container {
@@ -348,8 +410,8 @@ body {
   border-radius: var(--md-sys-shape-corner-medium); /* 12px */
   margin: 2rem auto;
   max-width: 768px;
-  text-align: center;
   border: 1px solid var(--md-sys-color-error);
+  box-shadow: var(--md-sys-elevation-level-1);
 }
 .error-message-container h3 {
   font-size: 1.125rem; /* type-title-medium adjusted */
@@ -358,15 +420,15 @@ body {
 }
 .error-message-container p {
   font-size: 0.875rem; /* type-body-medium */
+  margin-bottom: 1rem;
 }
 .error-dismiss-btn {
-  margin-top: 1rem;
   background-color: var(--md-sys-color-error);
   color: var(--md-sys-color-on-error);
   padding: 0.5rem 1rem;
   font-size: 0.75rem;
 }
-.error-dismiss-btn:hover {
+.error-dismiss-btn:hover:not(:disabled) {
    background-color: color-mix(in srgb, var(--md-sys-color-error) 85%, black);
 }
 
@@ -379,12 +441,13 @@ body {
   text-align: center;
   margin-bottom: 2rem;
   color: var(--md-sys-color-primary);
+  font-size: var(--md-type-headline-medium-font-size); /* Use M3 typo scale */
 }
 .comic-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
   gap: 1.5rem; /* 24px */
-  padding: 1rem 0; /* Add some padding if needed around the grid */
+  padding: 1rem 0; 
 }
 
 /* Comic Panel (Card) */
@@ -426,29 +489,35 @@ body {
   justify-content: center;
   text-align: center;
   padding: 1rem;
+  height: 100%; /* Ensure placeholder takes full height of wrapper */
 }
 .panel-image-placeholder .material-icons-outlined {
   font-size: 3rem; /* 48px */
-  animation: pulse 1.5s infinite ease-in-out;
+  color: var(--md-sys-color-primary); /* Use theme color */
+  animation: pulse 1.8s infinite cubic-bezier(0.4, 0, 0.6, 1);
   margin-bottom: 0.5rem;
 }
 @keyframes pulse {
-  0%, 100% { opacity: 0.6; transform: scale(0.95)}
-  50% { opacity: 1; transform: scale(1.05)}
+  0%, 100% { opacity: 0.7; transform: scale(0.9) }
+  50% { opacity: 1; transform: scale(1)}
 }
+.panel-image-placeholder span {
+  font-size: 0.875rem;
+  color: var(--md-sys-color-on-surface-variant);
+}
+
 
 .panel-content {
   padding: 1rem; /* 16px */
   flex-grow: 1;
   display: flex;
   flex-direction: column;
-  justify-content: flex-start;
+  gap: 0.75rem; /* Space between content elements */
 }
 .panel-caption {
   font-size: 0.875rem; /* type-body-medium */
   color: var(--md-sys-color-on-surface);
   font-style: italic;
-  margin-bottom: 0.75rem; /* 12px */
   line-height: 1.4;
 }
 .panel-caption strong {
@@ -456,7 +525,9 @@ body {
   font-weight: 600;
 }
 .panel-dialogues {
-  space-y: 0.5rem; /* Handled by child margins */
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem; 
 }
 .panel-dialogue {
   font-size: 0.75rem; /* type-label-medium */
@@ -464,7 +535,6 @@ body {
   background-color: var(--md-sys-color-surface-container);
   padding: 0.5rem 0.75rem; /* 8px 12px */
   border-radius: var(--md-sys-shape-corner-small); /* 8px */
-  margin-bottom: 0.5rem;
   line-height: 1.3;
 }
 .panel-scene-number-only {
@@ -480,7 +550,6 @@ body {
   position: fixed;
   inset: 0;
   background-color: var(--md-sys-color-scrim);
-  background-color: rgba(0,0,0,0.6); /* Scrim with opacity */
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -491,12 +560,12 @@ body {
 }
 
 .loading-spinner {
-  width: 4rem; /* 64px */
-  height: 4rem;
-  border: 5px solid var(--md-sys-color-surface-variant);
-  border-top-color: var(--md-sys-color-primary);
+  width: 3.5rem; /* 56px */
+  height: 3.5rem;
+  border: 4px solid var(--md-sys-color-surface-variant); /* Lighter track */
+  border-top-color: var(--md-sys-color-primary); /* Primary color for spinner arm */
   border-radius: 50%;
-  animation: spin 1s linear infinite;
+  animation: spin 0.8s linear infinite;
   margin-bottom: 1.5rem; /* 24px */
 }
 @keyframes spin {
@@ -504,30 +573,30 @@ body {
 }
 
 .loading-message {
-  font-size: 1.25rem; /* type-title-largeish */
+  font-size: 1.125rem; /* type-title-medium */
   font-weight: 500;
-  color: var(--md-sys-color-inverse-on-surface); /* Text on dark scrim */
+  color: var(--md-sys-color-surface-container-lowest); /* Text on dark scrim */
   margin-bottom: 0.5rem;
 }
 .loading-progress-info {
   width: 100%;
-  max-width: 400px;
+  max-width: 320px; /* More compact progress display */
 }
 .loading-progress-step {
-  font-size: 1rem; /* type-body-large */
-  color: var(--md-sys-color-inverse-on-surface);
+  font-size: 0.875rem; /* type-body-medium */
+  color: var(--md-sys-color-surface-container-lowest);
   margin-bottom: 0.5rem;
 }
 .loading-progress-panel-info {
-  font-size: 0.875rem; /* type-body-medium */
-  color: var(--md-sys-color-outline); /* Lighter text on scrim */
+  font-size: 0.75rem; /* type-label-medium */
+  color: var(--md-sys-color-outline-variant); /* Lighter text on scrim */
   margin-bottom: 0.75rem;
 }
 .loading-progress-bar-container {
   width: 100%;
-  background-color: var(--md-sys-color-surface-variant);
+  background-color: color-mix(in srgb, var(--md-sys-color-primary) 20%, transparent); /* Lighter primary for track */
   border-radius: var(--md-sys-shape-corner-full);
-  height: 0.75rem; /* 12px */
+  height: 0.5rem; /* 8px */
   margin-bottom: 0.5rem;
   overflow: hidden;
 }
@@ -538,16 +607,16 @@ body {
   transition: width 0.3s ease-in-out;
 }
 .loading-progress-percentage {
-  font-size: 0.875rem; /* type-label-large */
-  color: var(--md-sys-color-primary); /* Use primary color for percentage text */
+  font-size: 0.75rem; /* type-label-medium */
+  color: var(--md-sys-color-primary-container); /* Use primary container for percentage text */
 }
 
-/* Form Progress (inline) */
+/* Form Progress (inline, inside form card) */
 .form-progress-container {
-  margin-top: 1.5rem;
+  margin-top: 1rem; /* Reduced margin */
   text-align: center;
   padding: 1rem;
-  background-color: var(--md-sys-color-surface-container);
+  background-color: var(--md-sys-color-surface-container); /* Matches card sub-section */
   border-radius: var(--md-sys-shape-corner-medium);
 }
 .form-progress-step {

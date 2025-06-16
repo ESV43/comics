@@ -28,7 +28,7 @@ const App: React.FC = () => {
     setCurrentAspectRatio(options.aspectRatio);
     setProgress(undefined); 
     
-    let scenePrompts: ComicPanelData[] = []; // Declare scenePrompts here
+    let scenePrompts: ComicPanelData[] = []; 
 
     try {
       setProgress({ currentStep: "Analyzing story & generating scene prompts...", percentage: 0 });
@@ -64,8 +64,8 @@ const App: React.FC = () => {
             panel.image_prompt, 
             options.aspectRatio, 
             options.imageModel,
-            options.style, // Pass style
-            options.era    // Pass era
+            options.style, 
+            options.era    
           );
           setComicPanels(prevPanels => 
             prevPanels.map(p => p.scene_number === panel.scene_number ? { ...p, imageUrl } : p)
@@ -75,7 +75,6 @@ const App: React.FC = () => {
           setComicPanels(prevPanels => 
             prevPanels.map(p => p.scene_number === panel.scene_number ? { ...p, imageUrl: 'error' } : p) 
           );
-           // Optionally, set a general error or continue with a placeholder
         }
       }
       setProgress({ currentStep: "Comic generation complete!", percentage: 100, totalPanels: totalPanels, currentPanel: totalPanels });
@@ -90,22 +89,19 @@ const App: React.FC = () => {
       setComicPanels([]); 
       setProgress(undefined);
     } finally {
-      // Logic to manage isLoading and progress visibility after generation
-      if (error) { // If there was an error
+      if (error) { 
         setIsLoading(false);
-        // Keep progress visible on error, or clear after a delay:
-        // setTimeout(() => setProgress(undefined), 5000); 
-      } else if (comicPanels.length > 0 || (scenePrompts && scenePrompts.length > 0)) { // If successful (check if panels were at least attempted)
+      } else if (comicPanels.length > 0 || (scenePrompts && scenePrompts.length > 0)) { 
          setTimeout(() => {
             setIsLoading(false);
             setProgress(undefined); 
         }, 2000); 
-      } else { // Other cases, like no prompts generated leading to no panels
+      } else { 
         setIsLoading(false);
         setProgress(undefined);
       }
     }
-  }, [apiKey, comicPanels.length, error]); // Added 'error' to dependency array
+  }, [apiKey, comicPanels.length, error]); 
 
   const handleDownloadPdf = useCallback(async () => {
     if (comicPanels.length === 0 || isLoading) return;
@@ -150,14 +146,14 @@ const App: React.FC = () => {
 
             let imgWidth = img.width;
             let imgHeight = img.height;
-            const aspectRatio = imgWidth / imgHeight;
+            const aspectRatioVal = imgWidth / imgHeight;
 
             let pdfImgWidth = MAX_IMG_WIDTH;
-            let pdfImgHeight = pdfImgWidth / aspectRatio;
+            let pdfImgHeight = pdfImgWidth / aspectRatioVal;
 
             if (pdfImgHeight > MAX_IMG_HEIGHT_AREA) {
               pdfImgHeight = MAX_IMG_HEIGHT_AREA;
-              pdfImgWidth = pdfImgHeight * aspectRatio;
+              pdfImgWidth = pdfImgHeight * aspectRatioVal;
             }
             
             const imgX = (A4_WIDTH_MM - pdfImgWidth) / 2;
@@ -229,16 +225,18 @@ const App: React.FC = () => {
         {isLoading && <LoadingSpinner progress={progress} message={!progress && isLoading ? "Preparing your comic..." : undefined} />}
         
         <section className="api-key-section">
-          <label htmlFor="apiKey" className="form-label">Your Gemini API Key:</label>
-          <input
-            type="password"
-            id="apiKey"
-            value={apiKey}
-            onChange={(e) => setApiKey(e.target.value)}
-            className="form-input"
-            placeholder="Enter your API Key here"
-            aria-describedby="apiKeyHelp"
-          />
+          <div className="form-input-container">
+            <label htmlFor="apiKey" className="form-label">Your Gemini API Key</label>
+            <input
+              type="password"
+              id="apiKey"
+              value={apiKey}
+              onChange={(e) => setApiKey(e.target.value)}
+              className="form-input"
+              placeholder="Enter your API Key here"
+              aria-describedby="apiKeyHelp"
+            />
+          </div>
           <p id="apiKeyHelp" className="input-description">
             Your API Key is required and used solely for API calls. It's not stored.
           </p>
@@ -273,12 +271,8 @@ const App: React.FC = () => {
               className="btn btn-success" 
               aria-label="Download Comic as PDF"
             >
-              {isDownloadingPdf ? 'Generating PDF...' : (
-                <>
-                  <span className="material-icons-outlined" style={{ marginRight: '8px', fontSize: '20px', verticalAlign: 'middle' }}>download</span>
-                  Download Comic as PDF
-                </>
-              )}
+              <span className="material-icons-outlined">download</span>
+              {isDownloadingPdf ? 'Generating PDF...' : 'Download Comic as PDF'}
             </button>
           </div>
         )}
