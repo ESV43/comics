@@ -45,9 +45,9 @@ const StoryInputForm: React.FC<StoryInputFormProps> = ({ onSubmit, isLoading, is
           placeholder="Type or paste your comic story here. Describe characters, scenes, and actions..."
           required
           minLength={50}
-          maxLength={10000}
+          maxLength={60000} // Increased character limit
         />
-        <p className="input-description">Min. 50 characters. Max. 10000 characters.</p>
+        <p className="input-description">Min. 50 characters. Approx. Max. 10,000 words (60,000 characters).</p>
       </div>
 
       <div className="form-group-grid">
