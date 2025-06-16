@@ -11,17 +11,17 @@ interface ComicDisplayProps {
 const ComicDisplay: React.FC<ComicDisplayProps> = ({ panels, aspectRatioSetting }) => {
   if (!panels || panels.length === 0) {
     return (
-      <div className="text-center py-10 text-gray-400">
-        <p className="text-xl">Your comic will appear here once generated.</p>
-        <p>Fill out the form above and click "Create My Comic!"</p>
+      <div style={{ textAlign: 'center', padding: '2.5rem 0', color: 'var(--md-sys-color-on-surface-variant)' }}>
+        <p className="type-title-large">Your comic will appear here.</p>
+        <p className="type-body-medium">Fill out the form above and click "Create My Comic!"</p>
       </div>
     );
   }
 
   return (
-    <div className="mt-12 mb-8">
-      <h2 className="text-3xl font-bold text-center mb-8 text-blue-400">Your Generated Comic</h2>
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 p-4">
+    <div className="comic-display-container">
+      <h2 className="type-headline-medium comic-display-title">Your Generated Comic</h2>
+      <div className="comic-grid">
         {panels.map((panel) => (
           <Panel key={panel.scene_number} panel={panel} aspectRatioSetting={aspectRatioSetting} />
         ))}
