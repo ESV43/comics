@@ -72,7 +72,7 @@ CRITICAL INSTRUCTIONS FOR CHARACTER CONSISTENCY, STORY CONTEXT, AND VISUAL QUALI
     *   **Example Character Sheet Entry:**
         'ZARA:
         IVAP: ZARA_BLUE_SPIKY_HAIR_GREEN_EYES_SCAR_LEATHER_JACKET
-        Appearance: Young woman, early 20s, athletic build, approx 5\'7". Hair: spiky short blue hair, meticulously styled with a slight side part. Eyes: bright, piercing green, almond-shaped. Face: sharp nose, high cheekbones, a small, very faint, almost invisible scar running vertically just above her left eyebrow. Determined and intense default expression.
+        Appearance: Young woman, early 20s, athletic build, approx 5'7". Hair: spiky short blue hair, meticulously styled with a slight side part. Eyes: bright, piercing green, almond-shaped. Face: sharp nose, high cheekbones, a small, very faint, almost invisible scar running vertically just above her left eyebrow. Determined and intense default expression.
         Attire: A well-worn dark brown leather jacket with prominent silver zippers and a slightly frayed collar, always worn over a plain, dark grey, fitted t-shirt. Ripped black skinny jeans, with one large rip across the right knee. Black, heavy-duty combat boots, often scuffed, with distinctive red laces.
         Accessories: None notable.'
 
@@ -102,7 +102,17 @@ Story to process:
 ---
 ${story}
 ---
-Remember, produce ONLY the JSON array as your response. Do not include any explanatory text before or after the JSON.`;
+CRITICAL OUTPUT FORMATTING:
+1.  Produce ONLY the raw JSON array as your response. Do NOT include any explanatory text, markdown code fences (like \`\`\`json), or any other characters before or after the JSON array.
+2.  All string values within the generated JSON MUST be properly escaped to ensure JSON validity. This includes, but is not limited to:
+    *   Double quotes (\") inside strings must be escaped as \\".
+    *   Backslashes (\\) inside strings must be escaped as \\\\.
+    *   Newlines inside strings must be escaped as \\n.
+    *   Tabs inside strings must be escaped as \\t.
+    *   Other control characters as per JSON specification.
+3.  Pay meticulous attention to escaping requirements when incorporating text from the story or character sheets into fields like "image_prompt", "caption", and dialogue "line"s.
+4.  Ensure the entire output is a single, complete, and syntactically correct JSON array of objects, conforming to the structure specified earlier.
+`;
 
   try {
     const result: SDKGenerateContentResponse = await ai.models.generateContent({
@@ -143,6 +153,14 @@ Remember, produce ONLY the JSON array as your response. Do not include any expla
     const message = error instanceof Error ? error.message : "An unknown error occurred.";
     if (message.toLowerCase().includes("api key not valid") || message.toLowerCase().includes("permission denied")) {
         throw new Error(`Failed to generate scene prompts due to an API key issue: ${message}. Please check your API key and its permissions.`);
+    }
+    // Check for JSON parsing errors specifically, as they might indicate output truncation or malformed response
+    if (error instanceof SyntaxError && (message.toLowerCase().includes("json") || message.toLowerCase().includes("unexpected token") || message.toLowerCase().includes("malformed"))) {
+      let detailedMessage = `Failed to parse scene prompts from API response: ${message}. `;
+      detailedMessage += `This can happen if the story is too long or requests too many pages, leading to an incomplete or malformed response from the AI. `;
+      detailedMessage += `Please try reducing the number of pages or simplifying the story content. (Model: ${GEMINI_TEXT_MODEL})`;
+      console.error("Original JSON parsing error details:", error); // Log the original error for debugging
+      throw new Error(detailedMessage);
     }
     throw new Error(`Failed to generate scene prompts. Error: ${message}. Ensure your API key is valid and the model ${GEMINI_TEXT_MODEL} is accessible.`);
   }
