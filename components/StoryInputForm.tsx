@@ -94,8 +94,9 @@ const StoryInputForm: React.FC<StoryInputFormProps> = ({ onSubmit, isLoading, is
         </div>
         <div className="form-group">
           <label htmlFor="numPages" className="form-label">Number of Pages (1-{MAX_COMIC_PAGES})</label>
-           {/* FIX: Added a closing brace '}' to the style attribute object below */}
-           <div className="form-input-container" style={{paddingTop: '0.25rem', paddingBottom:'0.25rem', borderRadius: 'var(--md-sys-shape-corner-extra-small)'}}>
+          {/* FIX: The comment was moved from inside the tag to above it. */}
+          {/* Adjusted padding for number input consistency */}
+          <div className="form-input-container" style={{paddingTop: '0.25rem', paddingBottom:'0.25rem', borderRadius: 'var(--md-sys-shape-corner-extra-small)'}}>
             <input
               type="number"
               id="numPages"
