@@ -29,6 +29,6 @@ export const AVAILABLE_IMAGE_MODELS: { value: ImageGenerationModel; label: strin
   { value: ImageGenerationModel.GEMINI_2_FLASH_IMG, label: "Gemini 2.0 Flash Image (Speed Focus)" },
 ];
 
-export const GEMINI_TEXT_MODEL = "gemma-3-27b-it";
+export const GEMINI_TEXT_MODEL = "gemini-2.5-flash-preview-05-20";
 // GEMINI_IMAGE_MODEL is now effectively a default, actual model used will come from user selection
 export const DEFAULT_GEMINI_IMAGE_MODEL = ImageGenerationModel.GEMINI_2_FLASH_IMG; 
