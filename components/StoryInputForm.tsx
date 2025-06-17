@@ -1,7 +1,19 @@
 
 import React, { useState } from 'react';
-import { StoryInputOptions, ComicStyle, ComicEra, AspectRatio, GenerationProgress, ImageGenerationModel } from '../types';
-import { AVAILABLE_STYLES, AVAILABLE_ERAS, AVAILABLE_ASPECT_RATIOS, MAX_COMIC_PAGES, DEFAULT_NUM_PAGES, AVAILABLE_IMAGE_MODELS, DEFAULT_GEMINI_IMAGE_MODEL } from '../constants';
+import { StoryInputOptions, ComicStyle, ComicEra, AspectRatio, GenerationProgress, ImageGenerationModel, TextGenerationModel, CaptionPlacement } from '../types';
+import { 
+  AVAILABLE_STYLES, 
+  AVAILABLE_ERAS, 
+  AVAILABLE_ASPECT_RATIOS, 
+  MAX_COMIC_PAGES, 
+  DEFAULT_NUM_PAGES, 
+  AVAILABLE_IMAGE_MODELS, 
+  DEFAULT_GEMINI_IMAGE_MODEL,
+  AVAILABLE_TEXT_MODELS,
+  DEFAULT_TEXT_MODEL,
+  AVAILABLE_CAPTION_PLACEMENTS,
+  DEFAULT_CAPTION_PLACEMENT
+} from '../constants';
 
 interface StoryInputFormProps {
   onSubmit: (options: StoryInputOptions) => void;
@@ -18,6 +30,9 @@ const StoryInputForm: React.FC<StoryInputFormProps> = ({ onSubmit, isLoading, is
   const [includeCaptions, setIncludeCaptions] = useState(true);
   const [numPages, setNumPages] = useState<number>(DEFAULT_NUM_PAGES);
   const [imageModel, setImageModel] = useState<ImageGenerationModel>(DEFAULT_GEMINI_IMAGE_MODEL);
+  const [textModel, setTextModel] = useState<TextGenerationModel>(DEFAULT_TEXT_MODEL);
+  const [captionPlacement, setCaptionPlacement] = useState<CaptionPlacement>(DEFAULT_CAPTION_PLACEMENT);
+
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -29,7 +44,7 @@ const StoryInputForm: React.FC<StoryInputFormProps> = ({ onSubmit, isLoading, is
       alert("Please enter a story.");
       return;
     }
-    onSubmit({ story, style, era, aspectRatio, includeCaptions, numPages, imageModel });
+    onSubmit({ story, style, era, aspectRatio, includeCaptions, numPages, imageModel, textModel, captionPlacement });
   };
 
   return (
@@ -40,12 +55,12 @@ const StoryInputForm: React.FC<StoryInputFormProps> = ({ onSubmit, isLoading, is
           id="story"
           value={story}
           onChange={(e) => setStory(e.target.value)}
-          rows={8} // Adjusted rows
+          rows={8}
           className="form-textarea"
           placeholder="Type or paste your comic story here. Describe characters, scenes, and actions..."
           required
           minLength={50}
-          maxLength={60000} // Increased character limit
+          maxLength={60000}
         />
         <p className="input-description">Min. 50 characters. Approx. Max. 10,000 words (60,000 characters).</p>
       </div>
@@ -79,6 +94,37 @@ const StoryInputForm: React.FC<StoryInputFormProps> = ({ onSubmit, isLoading, is
           </div>
         </div>
         <div className="form-group">
+          <label htmlFor="numPages" className="form-label">Number of Pages (1-{MAX_COMIC_PAGES})</label>
+           <div className="form-input-container" style={{paddingTop: '0.25rem', paddingBottom:'0.25rem', borderRadius: 'var(--md-sys-shape-corner-extra-small)'}}> {/* Adjusted padding for number input consistency */}
+            <input
+              type="number"
+              id="numPages"
+              value={numPages}
+              onChange={(e) => setNumPages(Math.max(1, Math.min(MAX_COMIC_PAGES, parseInt(e.target.value, 10) || 1)))}
+              min="1"
+              max={MAX_COMIC_PAGES}
+              className="form-input"
+              style={{paddingTop: '0.5rem', paddingBottom: '0.5rem'}} // Ensure consistent height with selects
+            />
+          </div>
+        </div>
+      </div>
+
+       <div className="form-group-grid">
+        <div className="form-group">
+            <label htmlFor="textModel" className="form-label">Text Generation Model:</label>
+            <div className="form-select-wrapper">
+              <select 
+                id="textModel" 
+                value={textModel} 
+                onChange={(e) => setTextModel(e.target.value as TextGenerationModel)} 
+                className="form-select"
+              >
+                {AVAILABLE_TEXT_MODELS.map(tm => <option key={tm.value} value={tm.value}>{tm.label}</option>)}
+              </select>
+            </div>
+          </div>
+        <div className="form-group">
           <label htmlFor="imageModel" className="form-label">Image Generation Model:</label>
           <div className="form-select-wrapper">
             <select 
@@ -94,30 +140,35 @@ const StoryInputForm: React.FC<StoryInputFormProps> = ({ onSubmit, isLoading, is
       </div>
       
       <div className="form-group">
-        <div className="form-input-container">
-          <label htmlFor="numPages" className="form-label">Number of Pages (1-{MAX_COMIC_PAGES})</label>
+        <div className="checkbox-group" style={{marginBottom: '0.5rem'}}>
           <input
-            type="number"
-            id="numPages"
-            value={numPages}
-            onChange={(e) => setNumPages(Math.max(1, Math.min(MAX_COMIC_PAGES, parseInt(e.target.value, 10) || 1)))}
-            min="1"
-            max={MAX_COMIC_PAGES}
-            className="form-input"
+            id="includeCaptions"
+            type="checkbox"
+            checked={includeCaptions}
+            onChange={(e) => setIncludeCaptions(e.target.checked)}
+            className="checkbox-input"
           />
+          <label htmlFor="includeCaptions" className="checkbox-label">Include Captions & Dialogues</label>
         </div>
+        {includeCaptions && (
+          <div className="form-group" style={{marginTop: '0.5rem', marginLeft: '1.5rem'}}>
+            <label htmlFor="captionPlacement" className="form-label" style={{paddingLeft: 0, fontSize:'0.8rem'}}>Placement:</label>
+            <div className="form-select-wrapper">
+              <select 
+                id="captionPlacement" 
+                value={captionPlacement} 
+                onChange={(e) => setCaptionPlacement(e.target.value as CaptionPlacement)} 
+                className="form-select"
+                disabled={!includeCaptions}
+              >
+                {AVAILABLE_CAPTION_PLACEMENTS.map(cp => <option key={cp.value} value={cp.value}>{cp.label}</option>)}
+              </select>
+            </div>
+             <p className="input-description" style={{paddingLeft: 0, fontSize:'0.7rem'}}>Note: Embedding in image is experimental and AI may not always render text perfectly.</p>
+          </div>
+        )}
       </div>
 
-      <div className="checkbox-group">
-        <input
-          id="includeCaptions"
-          type="checkbox"
-          checked={includeCaptions}
-          onChange={(e) => setIncludeCaptions(e.target.checked)}
-          className="checkbox-input"
-        />
-        <label htmlFor="includeCaptions" className="checkbox-label">Include Captions & Dialogues</label>
-      </div>
 
       <button
         type="submit"
