@@ -1,13 +1,12 @@
-
 import React, { useState } from 'react';
 import { StoryInputOptions, ComicStyle, ComicEra, AspectRatio, GenerationProgress, ImageGenerationModel, TextGenerationModel, CaptionPlacement } from '../types';
-import { 
-  AVAILABLE_STYLES, 
-  AVAILABLE_ERAS, 
-  AVAILABLE_ASPECT_RATIOS, 
-  MAX_COMIC_PAGES, 
-  DEFAULT_NUM_PAGES, 
-  AVAILABLE_IMAGE_MODELS, 
+import {
+  AVAILABLE_STYLES,
+  AVAILABLE_ERAS,
+  AVAILABLE_ASPECT_RATIOS,
+  MAX_COMIC_PAGES,
+  DEFAULT_NUM_PAGES,
+  AVAILABLE_IMAGE_MODELS,
   DEFAULT_GEMINI_IMAGE_MODEL,
   AVAILABLE_TEXT_MODELS,
   DEFAULT_TEXT_MODEL,
@@ -95,7 +94,8 @@ const StoryInputForm: React.FC<StoryInputFormProps> = ({ onSubmit, isLoading, is
         </div>
         <div className="form-group">
           <label htmlFor="numPages" className="form-label">Number of Pages (1-{MAX_COMIC_PAGES})</label>
-           <div className="form-input-container" style={{paddingTop: '0.25rem', paddingBottom:'0.25rem', borderRadius: 'var(--md-sys-shape-corner-extra-small)'}}> {/* Adjusted padding for number input consistency */}
+           {/* FIX: Added a closing brace '}' to the style attribute object below */}
+           <div className="form-input-container" style={{paddingTop: '0.25rem', paddingBottom:'0.25rem', borderRadius: 'var(--md-sys-shape-corner-extra-small)'}}>
             <input
               type="number"
               id="numPages"
@@ -104,7 +104,7 @@ const StoryInputForm: React.FC<StoryInputFormProps> = ({ onSubmit, isLoading, is
               min="1"
               max={MAX_COMIC_PAGES}
               className="form-input"
-              style={{paddingTop: '0.5rem', paddingBottom: '0.5rem'}} // Ensure consistent height with selects
+              style={{paddingTop: '0.5rem', paddingBottom: '0.5rem'}}
             />
           </div>
         </div>
