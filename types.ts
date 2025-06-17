@@ -24,6 +24,23 @@ export enum ImageGenerationModel {
   GEMINI_2_FLASH_IMG = "gemini-2.0-flash-preview-image-generation",
 }
 
+export enum TextGenerationModel {
+  GEMINI_2_5_FLASH = "gemini-2.5-flash",
+  GEMINI_2_5_FLASH_LITE = "gemini-2.5-flash-lite-preview-06-17",
+  GEMINI_2_5_PRO = "gemini-2.5-pro",
+  GEMINI_2_0_FLASH = "gemini-2.0-flash",
+}
+  
+
+  // In the future, other compatible text models could be added here.
+  // For example: GEMINI_PRO_TEXT = "gemini-pro-text-version"
+}
+
+export enum CaptionPlacement {
+  IN_UI = "In User Interface",
+  IN_IMAGE = "Embedded in Image"
+}
+
 export interface ComicPanelData {
   scene_number: number;
   image_prompt: string;
@@ -41,6 +58,8 @@ export interface StoryInputOptions {
   includeCaptions: boolean;
   numPages: number; // Max 75
   imageModel: ImageGenerationModel;
+  textModel: TextGenerationModel;
+  captionPlacement: CaptionPlacement;
 }
 
 export interface GenerationProgress {
