@@ -1,7 +1,7 @@
 
-import { ComicStyle, ComicEra, AspectRatio, ImageGenerationModel } from './types';
+import { ComicStyle, ComicEra, AspectRatio, ImageGenerationModel, TextGenerationModel, CaptionPlacement } from './types';
 
-export const MAX_COMIC_PAGES = 175;
+export const MAX_COMIC_PAGES = 200;
 export const DEFAULT_NUM_PAGES = 6;
 
 export const AVAILABLE_STYLES: { value: ComicStyle; label: string }[] = [
@@ -29,6 +29,24 @@ export const AVAILABLE_IMAGE_MODELS: { value: ImageGenerationModel; label: strin
   { value: ImageGenerationModel.GEMINI_2_FLASH_IMG, label: "Gemini 2.0 Flash Image (Speed Focus)" },
 ];
 
-export const GEMINI_TEXT_MODEL = "gemini-2.5-flash-preview-05-20";
-// GEMINI_IMAGE_MODEL is now effectively a default, actual model used will come from user selection
-export const DEFAULT_GEMINI_IMAGE_MODEL = ImageGenerationModel.GEMINI_2_FLASH_IMG; 
+export const AVAILABLE_TEXT_MODELS: { value: TextGenerationModel; label: string }[] = [
+  { value: TextGenerationModel.GEMINI_2_5_FLASH, label: "Gemini 2.5 Flash (Default for Prompts)" },
+  { value: TextGenerationModel.GEMINI_2_5_FLASH_LITE, label: "Gemini 2.5 Flash Lite" }, // Added a label for clarity
+  { value: TextGenerationModel.GEMINI_2_5_PRO, label: "Gemini 2.5 Pro" },
+  { value: TextGenerationModel.GEMINI_2_0_FLASH, label: "Gemini 2.0 Flash" },
+  // Add other models here if they become available and are suitable
+];
+
+
+export const AVAILABLE_CAPTION_PLACEMENTS: { value: CaptionPlacement; label: string }[] = [
+  { value: CaptionPlacement.IN_UI, label: "Show in UI (below image)" },
+  { value: CaptionPlacement.IN_IMAGE, label: "Embed in image (AI attempts)" },
+];
+
+export const DEFAULT_TEXT_MODEL = TextGenerationModel.GEMINI_2_5_FLASH;
+export const DEFAULT_GEMINI_IMAGE_MODEL = ImageGenerationModel.GEMINI_2_FLASH_IMG;
+export const DEFAULT_CAPTION_PLACEMENT = CaptionPlacement.IN_UI;
+
+// This constant is effectively replaced by DEFAULT_TEXT_MODEL but kept for direct reference if needed elsewhere.
+// It will now point to the default.
+export const GEMINI_TEXT_MODEL = DEFAULT_TEXT_MODEL;
