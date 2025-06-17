@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { StoryInputOptions, ComicStyle, ComicEra, AspectRatio, GenerationProgress, ImageGenerationModel, TextGenerationModel, CaptionPlacement } from '../types';
 import { 
