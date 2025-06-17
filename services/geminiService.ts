@@ -6,6 +6,8 @@
  * This version enhances safety filter error reporting for image generation and retries for 500 errors.
  * It also includes significantly improved prompting for character/style consistency and "4K" visual quality,
  * with hyper-strict character sheet enforcement, contextual adherence, and negative prompting against distortions.
+ * Adds support for selecting text model, caption placement, and specific instructions for transgender character portrayal.
+ * Further refines instructions for UNYIELDING facial consistency for characters across panels.
  */
 
 import {
@@ -21,10 +23,12 @@ import {
   StoryInputOptions,
   AspectRatio,
   ImageGenerationModel,
+  TextGenerationModel,
+  CaptionPlacement,
   ComicStyle,
   ComicEra
 } from '../types';
-import { GEMINI_TEXT_MODEL } from '../constants';
+// GEMINI_TEXT_MODEL from constants is now effectively a default, actual model used comes from options.
 
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
@@ -44,7 +48,7 @@ interface SafetyRating {
 export const generateScenePrompts = async (apiKey: string, options: StoryInputOptions): Promise<ComicPanelData[]> => {
   if (!apiKey) throw new Error("API Key is required to generate scene prompts.");
   const ai = new GoogleGenAI({ apiKey });
-  const { story, style, era, includeCaptions, numPages, aspectRatio } = options;
+  const { story, style, era, includeCaptions, numPages, aspectRatio, textModel, captionPlacement } = options;
 
   let aspectRatioDescription = "1:1 square";
   if (aspectRatio === AspectRatio.LANDSCAPE) {
@@ -53,10 +57,27 @@ export const generateScenePrompts = async (apiKey: string, options: StoryInputOp
     aspectRatioDescription = "9:16 portrait";
   }
 
+  let captionDialogueInstruction = '';
+  if (includeCaptions) {
+    if (captionPlacement === CaptionPlacement.IN_IMAGE) {
+      captionDialogueInstruction = `
+IMPORTANT FOR CAPTIONS/DIALOGUES: If this scene has captions or dialogues, they MUST be incorporated directly into the 'image_prompt' itself, described as text elements visually present within the comic panel (e.g., 'a speech bubble above Zara’s head contains the text \"Let's go!\"', 'a rectangular yellow caption box at the bottom of the panel reads: \"Meanwhile, across town...\"').
+The 'caption' and 'dialogues' fields in the JSON output for this panel MUST then be null or an empty array respectively. This is CRITICAL for embedding text in images.`;
+    } else { // IN_UI
+      captionDialogueInstruction = `
+The "caption" field should contain a concise narrative caption for the scene. If no caption is appropriate, it should be null or an empty string.
+The "dialogues" field should be an array of strings, where each string is a line of dialogue formatted as "CharacterName: \"Dialogue line\"". If no dialogue, it's an empty array.`;
+    }
+  } else {
+    captionDialogueInstruction = `
+Since captions and dialogues are disabled for this comic, the "caption" field in the JSON output MUST be null, and the "dialogues" field MUST be an empty array for all scenes.`;
+  }
+
+
   const systemInstruction = `You are an AI assistant specialized in creating highly consistent and contextually accurate comic book scripts.
 Your task is to break down the provided story into exactly ${numPages} scenes.
 The output MUST be a single, valid JSON array of objects. Each object must have these keys: "scene_number", "scene_description_for_prompt", "image_prompt", "caption", and "dialogues".
-The "dialogues" key should contain an array of objects, each with a "character" and "line" key.
+${captionDialogueInstruction}
 
 CRITICAL INSTRUCTIONS FOR CHARACTER CONSISTENCY, STORY CONTEXT, AND VISUAL QUALITY:
 
@@ -65,24 +86,26 @@ CRITICAL INSTRUCTIONS FOR CHARACTER CONSISTENCY, STORY CONTEXT, AND VISUAL QUALI
 2.  **Internal Character Sheet Creation:** After deep comprehension, you MUST internally create an exhaustive 'character sheet' for EACH distinct character. This sheet is your **ABSOLUTE CANONICAL SOURCE OF TRUTH** for all visual details. It MUST include:
     *   **Full Name/Identifier:** (e.g., Zara, The Old Man)
     *   **Internal Visual Anchor Phrase (IVAP):** A unique, highly concise summary of their MOST IMMUTABLE core visual features. This is for YOUR internal reference. (e.g., ZARA_BLUE_SPIKY_HAIR_GREEN_EYES_SCAR_LEATHER_JACKET).
-    *   **Appearance Details (Exhaustive & Specific):** Specific hairstyle (e.g., 'spiky short blue hair parted on the left'), hair color, eye color and shape (e.g., 'bright green, almond-shaped eyes'), facial features (e.g., 'sharp nose, high cheekbones, a small, almost invisible scar above her left eyebrow'), distinguishing marks (e.g., 'a faint scar above left eyebrow, a tribal tattoo of a coiled serpent on the left bicep').
+    *   **Appearance Details (Exhaustive & Specific):** Specific hairstyle (e.g., 'spiky short blue hair parted on the left'), hair color, eye color and shape (e.g., 'bright green, almond-shaped eyes'), facial features (e.g., 'sharp nose, high cheekbones, a small, almost invisible scar above her left eyebrow'). Include details of facial structure (e.g., 'strong jawline', 'round face', 'pointed chin'). Facial structure and distinct features described here are **CRITICALLY IMPORTANT** and MUST be maintained consistently across panels.
     *   **Typical Attire (Detailed):** Describe common clothing items, their colors, styles, and materials (e.g., 'a worn dark brown leather jacket with silver zippers over a faded black t-shirt with a barely visible band logo, ripped blue jeans with patches, heavy black combat boots with red laces').
     *   **Notable Accessories:** (e.g., 'a silver pendant shaped like a wolf's head on a leather cord', 'round wire-rimmed glasses that are slightly bent').
     *   **Approximate Age/Build/Height:** (e.g., 'early 20s, athletic build, approx 5\'7"', 'elderly, frail frame, stooped posture, approx 5\'2"').
-    *   **Example Character Sheet Entry:**
+    *   **Gender Identity Consideration (IMPORTANT):** If the story describes a character as crossdressing, or explicitly states a character is a transgender woman, their character sheet entry MUST portray them with distinctly feminine features. This includes appropriate body shape (e.g., more slender, softer lines, wider hips if appropriate for the character's age/build), feminine facial structure (e.g., softer jawline, higher cheekbones), and ABSOLUTELY NO facial hair (unless explicitly requested by the story for a specific narrative reason, like a disguise that includes a fake beard). Their attire should reflect their expressed gender identity and be described accordingly. Ensure their portrayal is consistent with that of a woman and is respectful.
+    *   **Example Character Sheet Entry (Illustrative):**
         'ZARA:
         IVAP: ZARA_BLUE_SPIKY_HAIR_GREEN_EYES_SCAR_LEATHER_JACKET
-        Appearance: Young woman, early 20s, athletic build, approx 5'7". Hair: spiky short blue hair, meticulously styled with a slight side part. Eyes: bright, piercing green, almond-shaped. Face: sharp nose, high cheekbones, a small, very faint, almost invisible scar running vertically just above her left eyebrow. Determined and intense default expression.
+        Appearance: Young woman, early 20s, athletic build, approx 5'7". Hair: spiky short blue hair, meticulously styled with a slight side part. Eyes: bright, piercing green, almond-shaped. Face: sharp nose, high cheekbones, strong defined jawline, and a small, very faint, almost invisible scar running vertically just above her left eyebrow. Determined and intense default expression.
         Attire: A well-worn dark brown leather jacket with prominent silver zippers and a slightly frayed collar, always worn over a plain, dark grey, fitted t-shirt. Ripped black skinny jeans, with one large rip across the right knee. Black, heavy-duty combat boots, often scuffed, with distinctive red laces.
         Accessories: None notable.'
 
 **PHASE 2: PANEL SCRIPT GENERATION (APPLY WITH UNYIELDING PRECISION)**
 
 3.  **Unyielding Character Consistency (CRITICAL & NON-NEGOTIABLE):** For EVERY "image_prompt" you generate:
-    *   If a character from your internal sheet appears, you MUST BEGIN the character's description in the "image_prompt" with their name, followed IMMEDIATELY by their **COMPLETE VERBATIM VISUAL DESCRIPTION** copied from the 'Appearance Details', 'Typical Attire', and 'Notable Accessories' sections of THEIR character sheet entry.
+    *   If a character from your internal sheet appears, you MUST BEGIN the character's description in the "image_prompt" with their name, followed IMMEDIATELY by their **COMPLETE VERBATIM VISUAL DESCRIPTION** copied from the 'Appearance Details', 'Typical Attire', and 'Notable Accessories' sections of THEIR character sheet entry. Pay **EXTREME ATTENTION** to ensuring facial features (overall facial structure, shape of eyes, nose, mouth, unique marks) are described in a way that can be replicated IDENTICALLY by the image generator.
     *   **DO NOT SUMMARIZE, PARAPHRASE, REORDER, OR OMIT ANY DETAIL from the character sheet entry for that character.** This is the cornerstone of consistency.
-    *   **Example (Mandatory Format):** If Zara is in the scene, the prompt MUST include something like: "Image of Zara, a young woman, early 20s, athletic build, approx 5'7", with her spiky short blue hair, meticulously styled with a slight side part, her bright, piercing green, almond-shaped eyes, her sharp nose, high cheekbones, and the small, very faint, almost invisible scar running vertically just above her left eyebrow, wearing her well-worn dark brown leather jacket with prominent silver zippers and a slightly frayed collar over her plain, dark grey, fitted t-shirt, her ripped black skinny jeans with one large rip across the right knee, and her black, heavy-duty combat boots, often scuffed, with distinctive red laces. She is currently [describe action, expression, interaction based on story context for THIS panel]..."
-    *   A character's appearance MUST remain IDENTICAL across all panels unless the story *explicitly* describes a permanent change (e.g., 'Zara dyes her hair blonde and gets a new tattoo'). Temporary changes (e.g., wearing a hat, getting covered in mud) should be described in addition to the base appearance.
+    *   **Facial Immutability (ABSOLUTE RULE):** A character's core facial structure (shape of head, jawline, cheekbones, forehead) and distinct facial features (eyes including shape and color, nose shape, mouth shape, specific scars, moles, etc.) as defined in their character sheet MUST remain **ABSOLUTELY IDENTICAL** across ALL panels. The character must be instantly recognizable by their face from one panel to the next, as if drawn by a single artist who never forgets a face. The ONLY exception is if the story *explicitly* describes a disguise that alters these features (e.g., 'wearing a prosthetic nose') or a permanent, story-driven transformation *for that specific panel*.
+    *   **Example (Mandatory Format):** If Zara is in the scene, the prompt MUST include something like: "Image of Zara, a young woman, early 20s, athletic build, approx 5'7", with her spiky short blue hair, meticulously styled with a slight side part, her bright, piercing green, almond-shaped eyes, her sharp nose, high cheekbones, strong defined jawline, and the small, very faint, almost invisible scar running vertically just above her left eyebrow, wearing her well-worn dark brown leather jacket with prominent silver zippers and a slightly frayed collar over her plain, dark grey, fitted t-shirt, her ripped black skinny jeans with one large rip across the right knee, and her black, heavy-duty combat boots, often scuffed, with distinctive red laces. She is currently [describe action, expression, interaction based on story context for THIS panel]..."
+    *   A character's appearance (clothing, hair, etc.) MUST remain IDENTICAL across all panels unless the story *explicitly* describes a permanent change (e.g., 'Zara dyes her hair blonde and gets a new tattoo'). Temporary changes (e.g., wearing a hat, getting covered in mud) should be described in addition to the base appearance.
 
 4.  **Strict Contextual Adherence & Narrative Continuity (CRITICAL):**
     *   Each "image_prompt" must be a DIRECT VISUAL TRANSLATION of the events, character emotions, interactions, and environment AS DESCRIBED FOR THAT SPECIFIC SCENE in the input story. The image must tell the story of *that particular moment*.
@@ -116,19 +139,19 @@ CRITICAL OUTPUT FORMATTING:
 
   try {
     const result: SDKGenerateContentResponse = await ai.models.generateContent({
-      model: GEMINI_TEXT_MODEL,
+      model: textModel, // Use the selected text model
       contents: [{ role: 'USER', parts: [{ text: systemInstruction }] }],
       config: { responseMimeType: "application/json" }
     });
 
     if (result.promptFeedback?.blockReason) {
-      throw new Error(`Your story was blocked for violating content policies (${result.promptFeedback.blockReason}). Please revise your story and try again.`);
+      throw new Error(`Your story was blocked by content policies using model ${textModel} (${result.promptFeedback.blockReason}). Please revise your story.`);
     }
     
     const responseText = result.text;
     if (!responseText) {
-      console.error("API call for scene prompts returned an invalid structure or no text:", JSON.stringify(result, null, 2));
-      throw new Error("API response was malformed or did not contain the expected text content for scene prompts.");
+      console.error(`API call for scene prompts (model: ${textModel}) returned invalid structure or no text:`, JSON.stringify(result, null, 2));
+      throw new Error(`API response (model: ${textModel}) was malformed or did not contain expected text content.`);
     }
 
     let jsonStr = responseText.trim();
@@ -140,29 +163,47 @@ CRITICAL OUTPUT FORMATTING:
     
     const parsedData = JSON.parse(jsonStr) as any[];
 
-    return parsedData.map((panel, index) => ({
-      scene_number: panel.scene_number || index + 1,
-      image_prompt: panel.image_prompt || "No prompt generated for this scene.",
-      caption: includeCaptions ? (panel.caption || "") : null,
-      dialogues: includeCaptions && Array.isArray(panel.dialogues)
-        ? panel.dialogues.map((d: any) => d.character && d.line ? `${d.character}: "${d.line}"` : String(d)).filter(Boolean)
-        : [],
-      scene_description_for_prompt: panel.scene_description_for_prompt || ""
-    }));
+    return parsedData.map((panel, index) => {
+      let finalCaption = null;
+      let finalDialogues: string[] = [];
+
+      if (includeCaptions) {
+        if (captionPlacement === CaptionPlacement.IN_UI) {
+          finalCaption = panel.caption || "";
+          finalDialogues = Array.isArray(panel.dialogues)
+            ? panel.dialogues.map((d: any) => {
+                if (typeof d === 'string') return d; // Already formatted or simple string
+                if (d && d.character && d.line) return `${d.character}: "${d.line}"`; // Object format
+                return String(d); // Fallback
+              }).filter(Boolean)
+            : [];
+        }
+        // If captionPlacement is IN_IMAGE, finalCaption and finalDialogues remain null/empty
+        // as they should be embedded in image_prompt by the LLM.
+      }
+
+      return {
+        scene_number: panel.scene_number || index + 1,
+        image_prompt: panel.image_prompt || "No prompt generated for this scene.",
+        caption: finalCaption,
+        dialogues: finalDialogues,
+        scene_description_for_prompt: panel.scene_description_for_prompt || ""
+      };
+    });
+
   } catch (error) {
     const message = error instanceof Error ? error.message : "An unknown error occurred.";
     if (message.toLowerCase().includes("api key not valid") || message.toLowerCase().includes("permission denied")) {
-        throw new Error(`Failed to generate scene prompts due to an API key issue: ${message}. Please check your API key and its permissions.`);
+        throw new Error(`Failed to generate scene prompts (model: ${textModel}) due to an API key issue: ${message}. Check your API key and permissions.`);
     }
-    // Check for JSON parsing errors specifically, as they might indicate output truncation or malformed response
     if (error instanceof SyntaxError && (message.toLowerCase().includes("json") || message.toLowerCase().includes("unexpected token") || message.toLowerCase().includes("malformed"))) {
-      let detailedMessage = `Failed to parse scene prompts from API response: ${message}. `;
-      detailedMessage += `This can happen if the story is too long or requests too many pages, leading to an incomplete or malformed response from the AI. `;
-      detailedMessage += `Please try reducing the number of pages or simplifying the story content. (Model: ${GEMINI_TEXT_MODEL})`;
-      console.error("Original JSON parsing error details:", error); // Log the original error for debugging
+      let detailedMessage = `Failed to parse scene prompts from API response (model: ${textModel}): ${message}. `;
+      detailedMessage += `This can happen if the story is too long or requests too many pages, leading to an incomplete/malformed response. `;
+      detailedMessage += `Try reducing pages or simplifying story.`;
+      console.error("Original JSON parsing error details:", error);
       throw new Error(detailedMessage);
     }
-    throw new Error(`Failed to generate scene prompts. Error: ${message}. Ensure your API key is valid and the model ${GEMINI_TEXT_MODEL} is accessible.`);
+    throw new Error(`Failed to generate scene prompts (model: ${textModel}). Error: ${message}. Ensure API key is valid and model is accessible.`);
   }
 };
 
@@ -205,18 +246,23 @@ ${prompt}
 - Style Adherence: Emphasize a strong, visually distinct, and **unwavering** "${style}" aesthetic throughout the image. Every element (line work, color palette, texture, rendering technique) must conform.
 - Era Consistency: The scene MUST accurately and meticulously reflect a "${era}" setting, mood, technology, and fashion (if applicable to background elements or non-player characters not detailed in primary prompt). No anachronisms.
 - Supreme Visual Quality: Render with ultra-high definition, 4K or 8K equivalent visual fidelity. Implement cinematic lighting (consider volumetric lighting, rim lighting, god rays if appropriate for mood and specified in the primary prompt). Ensure tack-sharp focus on primary subjects, hyper-detailed textures appropriate to the style (e.g., intricate line work for anime, realistic pores for photorealism), intricate details in both foreground and background. Aim for masterpiece-level execution using professional digital art techniques. Flawless rendering.
+- Text in Image: If the prompt contains instructions for text within the image (e.g., speech bubbles, captions), RENDER THIS TEXT CLEARLY AND ACCURATELY as part of the visual scene.
 
 **CRITICAL CONSISTENCY & CONTEXT MANDATE (NON-NEGOTIABLE):**
 - Character Appearance: STRICTLY ADHERE TO ALL character physical descriptions, clothing, and accessories as detailed in the "Primary Subject Focus & Scene Description" section above. Maintain IDENTICAL hairstyles, facial features, body types, and attire for each character as described in that section. **ANY DEVIATION IS AN ABSOLUTE FAILURE.** The character's look is SACROSANCT and must be a direct visual translation of the text provided in THIS prompt.
+- **FACIAL IDENTITY LOCK (EXTREMELY CRITICAL):** The character's **facial identity** (overall facial structure, specific features like eye shape/color, nose shape/size, mouth shape, jawline, chin, forehead, and any unique marks like scars, moles, or freckles) MUST BE **PERFECTLY AND UNERRINGLY REPLICATED** as described in the "Primary Subject Focus & Scene Description". The face must be the **EXACT SAME FACE** in every image of this character, appearing as if drawn/photographed by the same person who has a perfect memory for that face. The character should be instantly recognizable by their face alone. The ONLY exception is if a disguise or transformation that *specifically alters these facial features* is explicitly part of THIS panel's prompt.
+- Transgender Character Portrayal: If a character is described as a transgender woman, ensure their features are feminine (e.g. no facial hair, softer jawline, appropriate body shape) as per their character sheet description from the previous stage, unless a disguise or specific narrative reason in THIS prompt dictates otherwise.
 - Style Integrity: The overall visual style ("${style}", "${era}") must be impeccably and consistently applied across the entire image. No style-mixing or deviation from these core directives.
 - Narrative Context: The image MUST visually represent the specific actions, emotions, and setting details provided in the "Primary Subject Focus & Scene Description". It is a snapshot of THAT particular moment in the story.
 
 **NEGATIVE PROMPT (AVOID THESE AT ALL COSTS):**
 - DO NOT generate: distorted or malformed faces, misshapen limbs, incorrect number of fingers/toes, blurry or out-of-focus primary subjects (unless specifically requested for artistic effect like bokeh, which MUST be in the primary prompt), inconsistent anatomy, warped or illogical perspectives, pixelation, digital artifacts, banding.
-- DO NOT generate: character features, hairstyle, or attire that contradict the detailed description provided in THIS prompt.
+- DO NOT generate: any changes, variations, or drifts in a character's established core facial structure or distinct facial features from how they are described in THIS prompt (e.g., different nose shape, eye spacing, jawline). The face MUST remain the same unless a disguise or transformation is EXPLICITLY part of THIS panel's prompt text.
+- DO NOT generate: character features, hairstyle, or attire that contradict the detailed description provided in THIS prompt. Specifically, if a character is meant to be a transgender woman, do not give her masculine features like facial hair unless explicitly part of a disguise described in THIS prompt.
 - DO NOT generate: generic backgrounds or settings unrelated to the described scene context.
 - DO NOT generate: emotional expressions or character poses that do not match the described mood, action, or narrative of THIS specific panel.
 - DO NOT generate: visual drift or changes in established character appearance from the details given in THIS prompt (unless a transformation is explicitly part of THIS prompt's text).
+- DO NOT generate: unreadable, garbled, or nonsensical text if text elements are requested in the prompt.
 
 Ensure the final image is compelling, dynamic, free of distortions, and of professional comic art/illustration quality, strictly adhering to all instructions. The image must be a FAITHFUL visual execution of the complete prompt text.
 `;
