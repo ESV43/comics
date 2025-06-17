@@ -32,6 +32,7 @@ const App: React.FC = () => {
 
     try {
       setProgress({ currentStep: "Analyzing story & generating scene prompts...", percentage: 0 });
+      // Pass the full options object, which now includes textModel and captionPlacement
       scenePrompts = await generateScenePrompts(apiKey, options); 
       
       if (!scenePrompts || scenePrompts.length === 0) {
@@ -75,6 +76,12 @@ const App: React.FC = () => {
           setComicPanels(prevPanels => 
             prevPanels.map(p => p.scene_number === panel.scene_number ? { ...p, imageUrl: 'error' } : p) 
           );
+           // Optionally, provide more specific feedback about image generation errors.
+          setError(prevError => {
+            const imgErrMessage = imgError instanceof Error ? imgError.message : "Unknown image error";
+            const panelErrMessage = `Error on panel ${panel.scene_number}: ${imgErrMessage}`;
+            return prevError ? `${prevError}\n${panelErrMessage}` : panelErrMessage;
+          });
         }
       }
       setProgress({ currentStep: "Comic generation complete!", percentage: 100, totalPanels: totalPanels, currentPanel: totalPanels });
@@ -89,25 +96,29 @@ const App: React.FC = () => {
       setComicPanels([]); 
       setProgress(undefined);
     } finally {
-      if (error) { 
-        setIsLoading(false);
-      } else if (comicPanels.length > 0 || (scenePrompts && scenePrompts.length > 0)) { 
+      // Logic for stopping loading indicator
+      // Ensure loading stops even if only scene prompts were generated but image generation failed for all
+      if (error && comicPanels.length === 0 && scenePrompts.length === 0) { // Major failure, no prompts
+         setIsLoading(false);
+         setProgress(undefined);
+      } else if (!error && scenePrompts.length > 0) { // At least prompts were generated
          setTimeout(() => {
             setIsLoading(false);
             setProgress(undefined); 
-        }, 2000); 
-      } else { 
+        }, 2000); // Give time for final progress message
+      } else { // Other cases, like error after some panels processed
         setIsLoading(false);
         setProgress(undefined);
       }
     }
-  }, [apiKey, comicPanels.length, error]); 
+  }, [apiKey]); // Removed comicPanels.length and error from dependencies as they caused re-renders / stale closures issues.
+                // handleComicGeneration should be stable based on apiKey. Internal state updates manage the rest.
 
   const handleDownloadPdf = useCallback(async () => {
     if (comicPanels.length === 0 || isLoading) return;
 
     setIsDownloadingPdf(true);
-    setError(null);
+    // setError(null); // Keep previous errors visible unless a new operation clears them
 
     try {
       const isLandscape = currentAspectRatio === AspectRatio.LANDSCAPE;
@@ -163,6 +174,7 @@ const App: React.FC = () => {
             
             let currentTextY = imgY + pdfImgHeight + TEXT_START_Y_OFFSET;
 
+            // Only add captions/dialogues to PDF if they exist (i.e., not embedded in image)
             if (panel.caption) {
               pdf.setFontSize(12);
               pdf.setTextColor(0); 
@@ -252,7 +264,10 @@ const App: React.FC = () => {
         {error && (
           <div className="error-message-container">
             <h3 className="type-title-medium">Operation Failed</h3>
-            <p>{error}</p>
+            {/* Split error by newlines to render multiple error messages if concatenated */}
+            {error.split('\n').map((errMsg, index) => (
+              <p key={index}>{errMsg}</p>
+            ))}
             <button 
               onClick={() => setError(null)} 
               className="btn error-dismiss-btn"
@@ -282,7 +297,7 @@ const App: React.FC = () => {
 
       <footer className="app-footer">
         <p>
-          Powered by Gemini AI. Comic Creator v2.0 M3 Edition
+          Powered by Gemini AI. Comic Creator v2.1 M3 Edition
         </p>
          <p className="footer-fineprint">
           Requires a valid Gemini API Key with permissions for selected models.
