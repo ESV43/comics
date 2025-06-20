@@ -37,7 +37,6 @@ const App: React.FC = () => {
     try {
       setProgress({ currentStep: "Analyzing story & generating scene prompts...", percentage: 0 });
 
-      // Route to the correct service for scene prompts
       if (options.generationService === GenerationService.GEMINI) {
         scenePrompts = await generateScenePrompts(apiKey, options);
       } else {
@@ -45,7 +44,7 @@ const App: React.FC = () => {
       }
 
       if (!scenePrompts || scenePrompts.length === 0) {
-        throw new Error("No scene prompts generated. The story might be too short or the AI service failed. Please try again.");
+        throw new Error("No scene prompts generated. The AI service may have failed or the story is too short.");
       }
 
       const initialPanels = scenePrompts.map(p => ({ ...p, imageUrl: undefined }));
@@ -77,8 +76,9 @@ const App: React.FC = () => {
               options.imageModel, options.style, options.era
             );
           } else {
+            // **FIX:** Pass the aspectRatio to the Pollinations function
             imageUrl = await generateImageForPromptWithPollinations(
-              panel.image_prompt, options.imageModel
+              panel.image_prompt, options.imageModel, options.aspectRatio
             );
           }
           setComicPanels(prevPanels =>
@@ -100,27 +100,119 @@ const App: React.FC = () => {
 
     } catch (err) {
       console.error("Comic generation failed:", err);
-      let errorMessage = err instanceof Error ? err.message : "An unknown error occurred during comic generation.";
-      if (options.generationService === GenerationService.GEMINI && (errorMessage.toLowerCase().includes('api key') || errorMessage.toLowerCase().includes('permission'))) {
-        errorMessage += " Please ensure the Gemini API key is correct and has permissions.";
-      }
+      let errorMessage = err instanceof Error ? err.message : "An unknown error occurred.";
       setError(errorMessage);
       setComicPanels([]);
       setProgress(undefined);
     } finally {
-      setTimeout(() => {
-        setIsLoading(false);
-        // Don't clear progress immediately so user can see the final message
-      }, 2000);
+      setTimeout(() => setIsLoading(false), 2000);
     }
   }, [apiKey]);
 
   const handleDownloadPdf = useCallback(async () => {
-    // This function remains unchanged.
     if (comicPanels.length === 0 || isLoading) return;
+
     setIsDownloadingPdf(true);
-    // ... (rest of function is identical)
-    setIsDownloadingPdf(false);
+
+    try {
+      const isLandscape = currentAspectRatio === AspectRatio.LANDSCAPE;
+      const pdf = new jsPDF({
+        orientation: isLandscape ? 'landscape' : 'portrait',
+        unit: 'mm',
+        format: 'a4'
+      });
+
+      const A4_WIDTH_MM = isLandscape ? 297 : 210;
+      const A4_HEIGHT_MM = isLandscape ? 210 : 297;
+      const MARGIN_MM = 10;
+      const MAX_IMG_WIDTH = A4_WIDTH_MM - 2 * MARGIN_MM;
+      const MAX_IMG_HEIGHT_AREA = A4_HEIGHT_MM * 0.65 - MARGIN_MM;
+      const TEXT_START_Y_OFFSET = 10;
+
+      for (let i = 0; i < comicPanels.length; i++) {
+        const panel = comicPanels[i];
+        if (i > 0) {
+          pdf.addPage();
+        }
+
+        pdf.setFontSize(10);
+        pdf.setTextColor(100);
+
+        pdf.text(`Panel ${panel.scene_number}`, MARGIN_MM, MARGIN_MM + 5);
+
+        if (panel.imageUrl && panel.imageUrl !== 'error') {
+          try {
+            const img = new Image();
+            img.src = panel.imageUrl;
+            await new Promise<void>((resolve, reject) => {
+                img.onload = () => resolve();
+                img.onerror = () => reject(new Error('Image failed to load for PDF generation.'));
+            });
+
+            let imgWidth = img.width;
+            let imgHeight = img.height;
+            const aspectRatioVal = imgWidth / imgHeight;
+
+            let pdfImgWidth = MAX_IMG_WIDTH;
+            let pdfImgHeight = pdfImgWidth / aspectRatioVal;
+
+            if (pdfImgHeight > MAX_IMG_HEIGHT_AREA) {
+              pdfImgHeight = MAX_IMG_HEIGHT_AREA;
+              pdfImgWidth = pdfImgHeight * aspectRatioVal;
+            }
+
+            const imgX = (A4_WIDTH_MM - pdfImgWidth) / 2;
+            const imgY = MARGIN_MM + 10;
+
+            pdf.addImage(panel.imageUrl, 'JPEG', imgX, imgY, pdfImgWidth, pdfImgHeight);
+
+            let currentTextY = imgY + pdfImgHeight + TEXT_START_Y_OFFSET;
+
+            if (panel.caption) {
+              pdf.setFontSize(12);
+              pdf.setTextColor(0);
+              const captionLines = pdf.splitTextToSize(`Caption: ${panel.caption}`, MAX_IMG_WIDTH);
+              pdf.text(captionLines, MARGIN_MM, currentTextY);
+              currentTextY += (captionLines.length * 5) + 5;
+            }
+
+            if (panel.dialogues && panel.dialogues.length > 0) {
+              pdf.setFontSize(10);
+              pdf.setTextColor(50);
+              panel.dialogues.forEach(dialogue => {
+                if (currentTextY > A4_HEIGHT_MM - MARGIN_MM - 10) {
+                    pdf.addPage();
+                    currentTextY = MARGIN_MM;
+                     pdf.text(`Panel ${panel.scene_number} (cont.)`, MARGIN_MM, currentTextY);
+                     currentTextY +=10;
+                }
+                const dialogueLines = pdf.splitTextToSize(dialogue, MAX_IMG_WIDTH);
+                pdf.text(dialogueLines, MARGIN_MM, currentTextY);
+                currentTextY += (dialogueLines.length * 4) + 2;
+              });
+            }
+          } catch (e) {
+            console.error("Error processing image for PDF for panel " + panel.scene_number, e);
+            const errorTextY = MARGIN_MM + 20;
+            pdf.setTextColor(255,0,0);
+            pdf.text("Error loading image for this panel.", MARGIN_MM, errorTextY, {maxWidth: MAX_IMG_WIDTH});
+            pdf.setTextColor(0);
+          }
+        } else {
+           const errorTextY = MARGIN_MM + 20;
+          pdf.setFontSize(12);
+          pdf.setTextColor(255,0,0);
+          pdf.text(panel.imageUrl === 'error' ? "Image generation failed for this panel." : "Image not available for this panel.", MARGIN_MM, errorTextY, {maxWidth: MAX_IMG_WIDTH});
+          pdf.setTextColor(0);
+        }
+      }
+      pdf.save('ai-comic.pdf');
+    } catch (e) {
+      console.error("Failed to generate PDF:", e);
+      setError(e instanceof Error ? e.message : "An unknown error occurred while generating the PDF.");
+    } finally {
+      setIsDownloadingPdf(false);
+    }
   }, [comicPanels, isLoading, currentAspectRatio]);
 
   return (
@@ -158,7 +250,7 @@ const App: React.FC = () => {
           <div className="error-message-container">
             <h3 className="type-title-medium">Operation Failed</h3>
             {error.split('\n').map((errMsg, index) => <p key={index}>{errMsg}</p>)}
-            <button onClick={() => setError(null)} className="btn error-dismiss-btn">
+            <button onClick={() => setError(null)} className="btn error-dismiss-btn" aria-label="Dismiss error message">
               Dismiss
             </button>
           </div>
@@ -181,7 +273,7 @@ const App: React.FC = () => {
 
       <footer className="app-footer">
         <p>Powered by Gemini and Pollinations AI.</p>
-         <p className="footer-fineprint">Comic Creator v2.3</p>
+         <p className="footer-fineprint">Comic Creator v3.0 Final</p>
       </footer>
     </div>
   );
