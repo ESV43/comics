@@ -1,8 +1,15 @@
 
-import { ComicStyle, ComicEra, AspectRatio, ImageGenerationModel, TextGenerationModel, CaptionPlacement } from './types';
+import { ComicStyle, ComicEra, AspectRatio, GenerationService, CaptionPlacement } from './types';
 
 export const MAX_COMIC_PAGES = 200;
 export const DEFAULT_NUM_PAGES = 6;
+export const FIXED_IMAGE_SEED = 42;
+
+// List of available generation services
+export const AVAILABLE_SERVICES: { value: GenerationService; label: string }[] = [
+  { value: GenerationService.GEMINI, label: "Gemini (API Key Required)" },
+  { value: GenerationService.POLLINATIONS, label: "Pollinations (Free, No Key)" },
+];
 
 export const AVAILABLE_STYLES: { value: ComicStyle; label: string }[] = [
   { value: ComicStyle.TWO_D, label: "2D Animation" },
@@ -24,29 +31,34 @@ export const AVAILABLE_ASPECT_RATIOS: { value: AspectRatio; label: string }[] = 
   { value: AspectRatio.LANDSCAPE, label: "Landscape (16:9)" },
 ];
 
-export const AVAILABLE_IMAGE_MODELS: { value: ImageGenerationModel; label: string }[] = [
-  { value: ImageGenerationModel.IMAGEN_3, label: "Imagen 3 (Quality Focus)" },
-  { value: ImageGenerationModel.GEMINI_2_FLASH_IMG, label: "Gemini 2.0 Flash Image (Speed Focus)" },
+// Renamed for clarity
+export const AVAILABLE_GEMINI_IMAGE_MODELS: { value: string; label: string }[] = [
+  { value: "imagen-3.0-generate-002", label: "Imagen 3 (Quality Focus)" },
+  { value: "gemini-2.0-flash-preview-image-generation", label: "Gemini 2.0 Flash Image (Speed Focus)" },
 ];
 
-export const AVAILABLE_TEXT_MODELS: { value: TextGenerationModel; label: string }[] = [
-  { value: TextGenerationModel.GEMINI_2_5_FLASH, label: "Gemini 2.5 Flash (Default for Prompts)" },
-  { value: TextGenerationModel.GEMINI_2_5_FLASH_LITE, label: "Gemini 2.5 Flash Lite" }, // Added a label for clarity
-  { value: TextGenerationModel.GEMINI_2_5_PRO, label: "Gemini 2.5 Pro" },
-  { value: TextGenerationModel.GEMINI_2_0_FLASH, label: "Gemini 2.0 Flash" },
-  // Add other models here if they become available and are suitable
+// Renamed for clarity
+export const AVAILABLE_GEMINI_TEXT_MODELS: { value: string; label: string }[] = [
+  { value: "gemini-2.5-flash", label: "Gemini 2.5 Flash (Default for Prompts)" },
+  { value: "gemini-2.5-flash-lite-preview-06-17", label: "Gemini 2.5 Flash Lite" },
+  { value: "gemini-2.5-pro", label: "Gemini 2.5 Pro" },
+  { value: "gemini-2.0-flash", label: "Gemini 2.0 Flash" },
 ];
 
+// Added a placeholder for Pollinations models.
+export const AVAILABLE_POLLINATIONS_TEXT_MODELS: { value: string; label: string }[] = [
+    { value: "default", label: "Default Text Model" }
+];
 
 export const AVAILABLE_CAPTION_PLACEMENTS: { value: CaptionPlacement; label: string }[] = [
   { value: CaptionPlacement.IN_UI, label: "Show in UI (below image)" },
   { value: CaptionPlacement.IN_IMAGE, label: "Embed in image (AI attempts)" },
 ];
 
-export const DEFAULT_TEXT_MODEL = TextGenerationModel.GEMINI_2_5_FLASH;
-export const DEFAULT_GEMINI_IMAGE_MODEL = ImageGenerationModel.GEMINI_2_FLASH_IMG;
+// Updated default models
+export const DEFAULT_TEXT_MODEL = "gemini-2.5-flash";
+export const DEFAULT_GEMINI_IMAGE_MODEL = "gemini-2.0-flash-preview-image-generation";
+export const DEFAULT_POLLINATIONS_IMAGE_MODEL = "dall-e-3";
 export const DEFAULT_CAPTION_PLACEMENT = CaptionPlacement.IN_UI;
 
-// This constant is effectively replaced by DEFAULT_TEXT_MODEL but kept for direct reference if needed elsewhere.
-// It will now point to the default.
 export const GEMINI_TEXT_MODEL = DEFAULT_TEXT_MODEL;
