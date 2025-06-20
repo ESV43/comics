@@ -72,50 +72,50 @@ export interface GenerationProgress {
   totalPanels?: number;
 }
 
-// Gemini API related types (simplified for this app)
+// Type for a single Pollinations text model from their API
+export interface PollinationsTextModel {
+    name: string;
+    description: string;
+    [key: string]: any; // Allow other properties
+}
+
+// Type for the simplified scene structure from Pollinations
+export interface PollinationsSceneOutput {
+  scene_number: number;
+  image_prompt: string;
+  caption: string | null;
+  dialogues: string[];
+}
+
+
+// --- Unchanged Gemini-specific types below ---
 export interface GroundingChunk {
-  web?: {
-    uri: string;
-    title: string;
-  };
-  retrievedContext?: {
-    uri: string;
-    title: string;
-  };
+  web?: { uri: string; title: string; };
+  retrievedContext?: { uri: string; title: string; };
 }
 export interface GroundingMetadata {
   groundingChunks?: GroundingChunk[];
 }
-
 export interface Candidate {
   groundingMetadata?: GroundingMetadata;
-  // Other candidate properties...
 }
 export interface GenerateContentResponse {
   text: string;
   candidates?: Candidate[];
 }
-
 export interface GeneratedImage {
-  image: {
-    imageBytes: string; // Base64 encoded image
-  };
-  // other properties if needed
+  image: { imageBytes: string; };
 }
 export interface GenerateImagesResponse {
   generatedImages: GeneratedImage[];
-  // Other properties like error or metadata
 }
-
 export interface ChatMessage {
   role: 'user' | 'model';
   parts: { text: string }[];
 }
-
-// Added for Pollinations simplified response
-export interface ScenePromptOutput {
-  scene_number: number;
-  image_prompt: string;
-  caption: string | null;
-  dialogues: string[];
+export interface CharacterSheetDetails {
+    IVAP: string;
+    appearance: string;
+    attire: string;
+    genderIdentityNote?: string | null;
 }
