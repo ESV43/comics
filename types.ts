@@ -1,4 +1,3 @@
-
 export enum ComicStyle {
   TWO_D = "2D Animation",
   THREE_D = "3D Rendered",
@@ -19,6 +18,13 @@ export enum AspectRatio {
   LANDSCAPE = "LANDSCAPE" // 16:9
 }
 
+// New enum to select the generation service
+export enum GenerationService {
+  GEMINI = "Gemini (API Key Required)",
+  POLLINATIONS = "Pollinations (Free, No API Key)",
+}
+
+// These are now primarily for Gemini, but we keep the type for simplicity
 export enum ImageGenerationModel {
   IMAGEN_3 = "imagen-3.0-generate-002",
   GEMINI_2_FLASH_IMG = "gemini-2.0-flash-preview-image-generation",
@@ -29,11 +35,6 @@ export enum TextGenerationModel {
   GEMINI_2_5_FLASH_LITE = "gemini-2.5-flash-lite-preview-06-17",
   GEMINI_2_5_PRO = "gemini-2.5-pro",
   GEMINI_2_0_FLASH = "gemini-2.0-flash",
-}
-  
-
-  // In the future, other compatible text models could be added here.
-  // For example: GEMINI_PRO_TEXT = "gemini-pro-text-version"
 }
 
 export enum CaptionPlacement {
@@ -47,19 +48,21 @@ export interface ComicPanelData {
   caption: string | null;
   dialogues: string[];
   imageUrl?: string; // To be filled after image generation
-  scene_description_for_prompt?: string; // Internal helper
+  scene_description_for_prompt?: string; // Internal helper for Gemini
 }
 
+// Updated to include the generation service and use string for models
 export interface StoryInputOptions {
   story: string;
   style: ComicStyle;
   era: ComicEra;
   aspectRatio: AspectRatio;
   includeCaptions: boolean;
-  numPages: number; // Max 75
-  imageModel: ImageGenerationModel;
-  textModel: TextGenerationModel;
+  numPages: number;
+  imageModel: string; // Generic string to support both services
+  textModel: string;  // Generic string to support both services
   captionPlacement: CaptionPlacement;
+  generationService: GenerationService; // Added
 }
 
 export interface GenerationProgress {
@@ -107,4 +110,12 @@ export interface GenerateImagesResponse {
 export interface ChatMessage {
   role: 'user' | 'model';
   parts: { text: string }[];
+}
+
+// Added for Pollinations simplified response
+export interface ScenePromptOutput {
+  scene_number: number;
+  image_prompt: string;
+  caption: string | null;
+  dialogues: string[];
 }
