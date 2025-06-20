@@ -43,8 +43,16 @@ const App: React.FC = () => {
         scenePrompts = await generateScenePromptsWithPollinations(options);
       }
 
+      // **FALLBACK LOGIC**
       if (!scenePrompts || scenePrompts.length === 0) {
-        throw new Error("No scene prompts generated. The AI service may have failed or the story is too short.");
+        setError("Warning: The AI could not break the story into scenes. Generating a single image from the full story text instead.");
+        
+        scenePrompts = [{
+            scene_number: 1,
+            image_prompt: `${options.story}, in the style of ${options.style}, ${options.era}`,
+            caption: "Fallback: Full Story",
+            dialogues: ["Scene generation failed."],
+        }];
       }
 
       const initialPanels = scenePrompts.map(p => ({ ...p, imageUrl: undefined }));
@@ -69,14 +77,12 @@ const App: React.FC = () => {
         const panel = scenePrompts[i];
         try {
           let imageUrl: string;
-          // Route to the correct service for image generation
           if (options.generationService === GenerationService.GEMINI) {
             imageUrl = await generateImageForPrompt(
               apiKey, panel.image_prompt, options.aspectRatio,
               options.imageModel, options.style, options.era
             );
           } else {
-            // **FIX:** Pass the aspectRatio to the Pollinations function
             imageUrl = await generateImageForPromptWithPollinations(
               panel.image_prompt, options.imageModel, options.aspectRatio
             );
@@ -248,9 +254,9 @@ const App: React.FC = () => {
 
         {error && (
           <div className="error-message-container">
-            <h3 className="type-title-medium">Operation Failed</h3>
+            <h3 className="type-title-medium">Operation Status</h3>
             {error.split('\n').map((errMsg, index) => <p key={index}>{errMsg}</p>)}
-            <button onClick={() => setError(null)} className="btn error-dismiss-btn" aria-label="Dismiss error message">
+            <button onClick={() => setError(null)} className="btn error-dismiss-btn" aria-label="Dismiss message">
               Dismiss
             </button>
           </div>
@@ -273,7 +279,7 @@ const App: React.FC = () => {
 
       <footer className="app-footer">
         <p>Powered by Gemini and Pollinations AI.</p>
-         <p className="footer-fineprint">Comic Creator v3.0 Final</p>
+         <p className="footer-fineprint">Comic Creator v3.2 - Final</p>
       </footer>
     </div>
   );
