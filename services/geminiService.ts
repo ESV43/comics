@@ -5,7 +5,7 @@
  */
 
 import {
-  GoogleGenAI,
+  GoogleGenerativeAI,
   GenerateContentResponse as SDKGenerateContentResponse,
   Part,
   HarmCategory,
@@ -203,7 +203,7 @@ export const generateScenePromptsWithPollinations = async (options: StoryInputOp
 
 export const generateScenePrompts = async (apiKey: string, options: StoryInputOptions): Promise<ComicPanelData[]> => {
   if (!apiKey) throw new Error("API Key is required to generate scene prompts.");
-  const ai = new GoogleGenAI({ apiKey });
+  const genAI = new GoogleGenerativeAI(apiKey);
   const { story, numPages, aspectRatio, textModel, captionPlacement, characters, includeCaptions } = options;
 
   let aspectRatioDescription = "1:1 square aspect ratio";
@@ -253,7 +253,7 @@ export const generateScenePrompts = async (apiKey: string, options: StoryInputOp
         });
     }
 
-    const model = ai.getGenerativeModel({
+    const model = genAI.getGenerativeModel({
         model: textModel,
         generationConfig: { responseMimeType: "application/json" }
     });
@@ -301,7 +301,7 @@ export const generateImageForPrompt = async (
   era: ComicEra | string
 ): Promise<string> => {
   if (!apiKey) throw new Error("API Key is required for image generation.");
-  const ai = new GoogleGenAI({ apiKey });
+  const genAI = new GoogleGenerativeAI(apiKey);
   
   let aspectRatioDescription = "square 1:1 aspect ratio";
   if (inputAspectRatio === AspectRatio.LANDSCAPE) aspectRatioDescription = "landscape 16:9 aspect ratio";
@@ -312,11 +312,10 @@ export const generateImageForPrompt = async (
   const maxRetries = 2;
   let lastError: Error | null = null;
 
-  const imageModel = ai.getGenerativeModel({ model: imageModelName });
+  const imageModel = genAI.getGenerativeModel({ model: imageModelName });
 
   for (let attempt = 0; attempt < maxRetries; attempt++) {
     try {
-      // The new SDK uses generateContent for image models like Imagen 3
       const result = await imageModel.generateContent(augmentedPrompt);
       const response = result.response;
 
