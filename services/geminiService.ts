@@ -1,7 +1,7 @@
 /**
  * @fileoverview This file contains the core service functions for interacting with AI models.
  * It handles comic generation for both Google Gemini and Pollinations AI.
- * This version uses the correct GET method for Pollinations text generation and a robust fallback signal.
+ * This version includes character consistency features using reference images and a fixed seed.
  */
 
 import {
@@ -11,6 +11,7 @@ import {
   Modality,
   HarmCategory,
   HarmProbability,
+  Part,
 } from "@google/genai";
 import {
   ComicPanelData,
@@ -50,6 +51,19 @@ function extractJsonArray(text: string): any[] | null {
     }
     return null;
 }
+
+// Helper to convert a data URL to a GenAI Part object
+const dataUrlToGenaiPart = (dataUrl: string): Part => {
+    const match = dataUrl.match(/data:(image\/\w+);base64,(.*)/);
+    if (!match) throw new Error("Invalid data URL format");
+    return {
+        inlineData: {
+            mimeType: match[1],
+            data: match[2],
+        },
+    };
+};
+
 
 interface SafetyRating {
   category: HarmCategory;
@@ -99,6 +113,7 @@ export const generateImageForPromptWithPollinations = async (
         
         const params = new URLSearchParams();
         params.append('model', model);
+        params.append('seed', String(FIXED_IMAGE_SEED)); // Lock seed for consistency
 
         switch (aspectRatio) {
             case AspectRatio.PORTRAIT:
@@ -136,10 +151,21 @@ export const generateImageForPromptWithPollinations = async (
 };
 
 export const generateScenePromptsWithPollinations = async (options: StoryInputOptions): Promise<ComicPanelData[]> => {
-  const { story, numPages, style, era } = options;
+  const { story, numPages, style, era, characters } = options;
   
+  let characterInstruction = '';
+  if (characters && characters.length > 0) {
+    const characterNames = characters.map(c => c.name).join(', ');
+    characterInstruction = `
+      The story features these characters: ${characterNames}.
+      IMPORTANT: For each of these characters, you must invent a consistent, detailed physical description (e.g., hair color, face shape, clothing style).
+      When you generate each 'image_prompt', you MUST include the full, detailed description of any character present in that scene. This is critical for visual consistency.
+      For example, for a character named 'Zorp', you might decide he is 'a tall alien with green skin, three eyes, and a silver jumpsuit'. Every prompt featuring Zorp must include this full description.
+    `;
+  }
+
   const systemPrompt = `
-    Break this story into ${numPages} scenes. Respond with ONLY a JSON array where each object has keys: "scene_number", "image_prompt", "caption", "dialogues".
+    Break this story into ${numPages} scenes. ${characterInstruction} Respond with ONLY a JSON array where each object has keys: "scene_number", "image_prompt", "caption", "dialogues".
     Story: """${story}"""
   `;
 
@@ -190,11 +216,12 @@ export const generateScenePromptsWithPollinations = async (options: StoryInputOp
   return [];
 };
 
-// --- Google Gemini Service Functions (Full, Unchanged Implementation) ---
+// --- Google Gemini Service Functions ---
+
 export const generateScenePrompts = async (apiKey: string, options: StoryInputOptions): Promise<ComicPanelData[]> => {
   if (!apiKey) throw new Error("API Key is required to generate scene prompts.");
   const ai = new GoogleGenAI({ apiKey });
-  const { story, style, era, includeCaptions, numPages, aspectRatio, textModel, captionPlacement } = options;
+  const { story, style, era, includeCaptions, numPages, aspectRatio, textModel, captionPlacement, characters } = options;
 
   let aspectRatioDescription = "1:1 square";
   if (aspectRatio === AspectRatio.LANDSCAPE) aspectRatioDescription = "16:9 landscape";
@@ -202,26 +229,80 @@ export const generateScenePrompts = async (apiKey: string, options: StoryInputOp
 
   let captionDialogueInstruction = '';
   if (includeCaptions) {
-    if (captionPlacement === CaptionPlacement.IN_IMAGE) {
-      captionDialogueInstruction = `...`; // Full prompt text here
-    } else {
-      captionDialogueInstruction = `...`; // Full prompt text here
-    }
+      captionDialogueInstruction = `Each scene object MUST have a "caption" key (string, can be empty) for narration and a "dialogues" key (an array of strings, can be empty) for character speech.`;
+      if (captionPlacement === CaptionPlacement.IN_IMAGE) {
+          captionDialogueInstruction += ` The 'image_prompt' should include instructions to embed the text from "caption" and "dialogues" directly into the image in comic-book style text boxes or speech bubbles.`;
+      }
   } else {
-    captionDialogueInstruction = `...`; // Full prompt text here
+      captionDialogueInstruction = `The "caption" and "dialogues" keys in the output should be empty strings or empty arrays, respectively. Do NOT include any text in the generated images.`;
   }
+  
+  const hasCharacters = characters && characters.length > 0;
+  const isMultimodal = ['gemini-2.5-flash', 'gemini-2.5-pro'].includes(textModel);
+  let characterInstruction = '';
+  if (hasCharacters) {
+      const characterNames = characters.map(c => c.name).join(', ');
+      if (isMultimodal) {
+          characterInstruction = `\n\n**CHARACTER CONSISTENCY INSTRUCTIONS:**\nYou have been provided with reference images for the following characters: ${characterNames}. The images are the source of truth for their appearance. When a character is mentioned, you MUST refer to their image to describe their face, hair, and clothing accurately in the 'image_prompt'. This is critical for maintaining consistency. For example, if the story says "John smiled", the prompt should detail John's appearance based on his image, such as "a detailed shot of John, a man with short brown hair and a kind smile as seen in the reference, smiling warmly".`;
+      } else {
+          characterInstruction = `\n\n**CHARACTER CONSISTENCY INSTRUCTIONS:**\nThe story features these characters: ${characterNames}. You must invent a detailed, consistent physical description for each one. Then, for every scene a character appears in, you MUST inject their full, consistent description into that scene's 'image_prompt' to maintain visual consistency. For example, if you decide 'Zorp' is 'a tall alien with green skin and three eyes', every prompt with Zorp must include this full description.`;
+      }
+  }
+  
+  const systemInstruction = `
+    You are a professional comic book writer and artist's assistant. Your task is to analyze a story and break it down into a series of distinct, visual scenes for an AI image generator.
 
-  const systemInstruction = `...`; // Full, long system instruction for Gemini here
+    **TASK:**
+    1. Read the provided story.
+    2. Divide the story into exactly ${numPages} sequential scenes.
+    3. For each scene, create a JSON object with the following keys:
+        - "scene_number": (Integer) The sequence number of the panel, starting from 1.
+        - "image_prompt": (String) A highly detailed, descriptive prompt for an AI image generator. This prompt MUST describe the characters, setting, action, and mood of the scene. It should be rich enough to generate a compelling image.
+        - "caption": (String) A brief narrative caption for the panel. Can be empty if no narration is needed.
+        - "dialogues": (Array of Strings) Any lines of dialogue spoken by characters in the scene. Can be empty.
+
+    **OUTPUT FORMAT:**
+    - You must respond with ONLY a valid JSON array containing the ${numPages} scene objects. Do not include any other text, markdown formatting, or explanations.
+    - The output must start with \`[\` and end with \`]\`.
+
+    **CRITICAL INSTRUCTIONS:**
+    - The final image aspect ratio will be ${aspectRatioDescription}.
+    - ${captionDialogueInstruction}
+    - ${characterInstruction}
+
+    Here is the story:
+    """
+    ${story}
+    """
+  `;
 
   try {
+    const userParts: Part[] = [{ text: systemInstruction }];
+
+    if (hasCharacters && isMultimodal) {
+        characters.forEach(char => {
+            // Add a text part to introduce the character image
+            userParts.push({ text: `\nReference image for character: ${char.name}` });
+            userParts.push(dataUrlToGenaiPart(char.image));
+        });
+    }
+    
     const result: SDKGenerateContentResponse = await ai.models.generateContent({
       model: textModel,
-      contents: [{ role: 'USER', parts: [{ text: systemInstruction }] }],
+      contents: [{ role: 'USER', parts: userParts }],
       config: { responseMimeType: "application/json" }
     });
     
-    // ... rest of original function ...
-    const parsedData: LLMSceneResponse = JSON.parse(result.text);
+    if (!result.text) {
+        throw new Error("The AI model returned an empty response. It may have been blocked for safety reasons or another issue.");
+    }
+
+    const parsedData: { scenes: PollinationsSceneOutput[] } = JSON.parse(result.text);
+
+    if (!parsedData || !Array.isArray(parsedData.scenes) || parsedData.scenes.length === 0) {
+      throw new Error("AI response could not be parsed into a valid array of scenes.");
+    }
+    
     return parsedData.scenes.map((panel, index) => ({
       scene_number: panel.scene_number || index + 1,
       image_prompt: panel.image_prompt,
@@ -230,8 +311,11 @@ export const generateScenePrompts = async (apiKey: string, options: StoryInputOp
     }));
 
   } catch (error) {
-    // ... original error handling ...
-    throw error;
+    console.error("Error generating scene prompts with Gemini:", error);
+    if (error instanceof Error) {
+        throw new Error(`Failed to generate scene prompts from Gemini. Error: ${error.message}`);
+    }
+    throw new Error("An unknown error occurred while generating scene prompts.");
   }
 };
 
@@ -254,8 +338,35 @@ export const generateImageForPrompt = async (
     default: apiAspectRatioValue = "1:1";
   }
 
-  const augmentedPrompt = `...`; // Full augmented prompt for Gemini
+  const augmentedPrompt = `${initialImagePrompt}, cinematic still, in the distinct visual style of ${style}, inspired by the ${era} era.`;
 
-  // ... rest of original function with retry logic ...
-  return ""; // Placeholder
+  const maxRetries = 2;
+  let lastError: Error | null = null;
+
+  for (let attempt = 0; attempt < maxRetries; attempt++) {
+      try {
+          const result: SDKGenerateImagesResponse = await ai.images.generate({
+              model: imageModelName,
+              prompt: augmentedPrompt,
+              number: 1,
+              aspectRatio: apiAspectRatioValue,
+              seed: FIXED_IMAGE_SEED, // Lock the seed for consistency
+          });
+
+          if (result.generatedImages && result.generatedImages.length > 0) {
+              const imageBytes = result.generatedImages[0].image.imageBytes;
+              return `data:image/jpeg;base64,${imageBytes}`;
+          } else {
+              throw new Error("The API did not return any images.");
+          }
+      } catch (error) {
+          lastError = error instanceof Error ? error : new Error(String(error));
+          console.error(`Image generation attempt ${attempt + 1} failed for prompt "${augmentedPrompt}":`, lastError);
+          if (attempt < maxRetries - 1) {
+              await delay(2000 * (attempt + 1)); // Wait longer on each retry
+          }
+      }
+  }
+
+  throw new Error(`Failed to generate image after ${maxRetries} attempts. Last error: ${lastError?.message}`);
 };
