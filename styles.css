@@ -681,3 +681,80 @@ body {
   color: var(--md-sys-color-outline); /* Medium grey for fine print */
   margin-top: 0.25rem;
 }
+/* ... at the end of the file ... */
+
+/* Character Reference Section */
+.character-reference-section {
+  border-top: 1px solid var(--md-sys-color-outline-variant);
+  padding-top: 1.5rem;
+}
+
+.character-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-top: 1rem;
+  margin-bottom: 1.5rem;
+  min-height: 40px; /* Reserve space even when empty */
+}
+
+.character-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  background-color: var(--md-sys-color-surface-container-highest);
+  border: 1px solid var(--md-sys-color-outline);
+  border-radius: var(--md-sys-shape-corner-full);
+  padding: 4px 12px 4px 4px;
+  font-size: 0.875rem;
+  color: var(--md-sys-color-on-surface);
+  transition: all 0.2s ease-in-out;
+}
+
+.character-thumbnail {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 1px solid var(--md-sys-color-outline-variant);
+  background-color: var(--md-sys-color-surface-variant);
+}
+
+.character-name {
+  font-weight: 500;
+}
+
+.character-remove-btn {
+  background: none;
+  border: none;
+  color: var(--md-sys-color-on-surface-variant);
+  cursor: pointer;
+  font-size: 1.5rem;
+  line-height: 1;
+  padding: 0 0 0 4px;
+  opacity: 0.7;
+  transition: all 0.2s ease-in-out;
+}
+
+.character-remove-btn:hover {
+  color: var(--md-sys-color-error);
+  opacity: 1;
+  transform: scale(1.1);
+}
+
+.add-character-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  align-items: flex-start;
+}
+
+.add-character-controls .form-input-container {
+    flex-grow: 1;
+    min-width: 200px;
+}
+
+.add-character-controls .btn {
+  flex-shrink: 0;
+  margin-top: 1.25rem; /* Aligns button with input field text */
+}
