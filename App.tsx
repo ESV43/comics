@@ -1,5 +1,3 @@
-// comics-main/App.tsx
-
 import React, { useState, useCallback } from 'react';
 import jsPDF from 'jspdf';
 import StoryInputForm from './components/StoryInputForm';
@@ -35,7 +33,7 @@ const App: React.FC = () => {
     setProgress({ currentStep: "Preparing...", percentage: 0 });
 
     let scenePrompts: ComicPanelData[] = [];
-    let generationError: string | null = null; // Local error state
+    let generationError: string | null = null; 
 
     try {
       setProgress({ currentStep: "Analyzing story & generating scene prompts...", percentage: 0 });
@@ -46,18 +44,8 @@ const App: React.FC = () => {
         scenePrompts = await generateScenePromptsWithPollinations(options);
       }
 
-      // **FIXED: Improved Fallback Logic**
       if (!scenePrompts || scenePrompts.length === 0) {
-        // This is a special case where the prompt generation failed but we want to continue with a fallback.
-        // It's not a fatal error for the whole process.
-        generationError = "Warning: The AI could not break the story into scenes. Generating a single image from the full story text instead.";
-        
-        scenePrompts = [{
-            scene_number: 1,
-            image_prompt: `${options.story}, in the style of ${options.style}, ${options.era}`,
-            caption: "Fallback: Full Story",
-            dialogues: ["Scene generation failed."],
-        }];
+        throw new Error("The AI failed to generate any comic scenes from the story. Please try refining your story or using a different model.");
       }
 
       const initialPanels = scenePrompts.map(p => ({ ...p, imageUrl: undefined }));
@@ -100,7 +88,7 @@ const App: React.FC = () => {
           setComicPanels(prevPanels =>
             prevPanels.map(p => p.scene_number === panel.scene_number ? { ...p, imageUrl: 'error' } : p)
           );
-          // Accumulate image errors
+          
           const imgErrMessage = imgError instanceof Error ? imgError.message : "Unknown image error";
           const panelErrMessage = `Error on panel ${panel.scene_number}: ${imgErrMessage}`;
           generationError = generationError ? `${generationError}\n${panelErrMessage}` : panelErrMessage;
@@ -111,20 +99,17 @@ const App: React.FC = () => {
     } catch (err) {
       console.error("Comic generation failed:", err);
       const errorMessage = err instanceof Error ? err.message : "An unknown error occurred.";
-      // This is a fatal error, so we clear panels and set the error.
       setError(errorMessage);
       setComicPanels([]);
       setProgress(undefined);
-      setIsLoading(false); // Stop loading immediately on fatal error
-      return; // Exit the function
+      setIsLoading(false);
+      return;
     } 
     
-    // **FIXED: Final state update outside the try-catch**
-    // This ensures that any non-fatal errors (like fallback or individual panel errors) are displayed.
     if (generationError) {
       setError(generationError);
     }
-    // Use a timeout to allow the final progress bar state to be seen before disappearing.
+    
     setTimeout(() => {
         setIsLoading(false);
         setProgress(undefined);
