@@ -40,7 +40,6 @@ const StoryInputForm: React.FC<StoryInputFormProps> = ({ onSubmit, isLoading, is
   const [pollinationsTextModels, setPollinationsTextModels] = useState<{ value: string; label: string }[]>([]);
   const [arePollinationsModelsLoading, setArePollinationsModelsLoading] = useState(false);
   
-  // State for character references
   const [characters, setCharacters] = useState<CharacterReference[]>([]);
   const [newCharName, setNewCharName] = useState('');
 
@@ -73,11 +72,11 @@ const StoryInputForm: React.FC<StoryInputFormProps> = ({ onSubmit, isLoading, is
           image: loadEvent.target?.result as string,
         };
         setCharacters(prev => [...prev, newCharacter]);
-        setNewCharName(''); // Reset for next character
+        setNewCharName('');
       };
       reader.readAsDataURL(file);
     }
-    e.target.value = ''; // Always reset file input to allow re-uploading the same file
+    e.target.value = '';
   };
 
   const handleRemoveCharacter = (id: string) => {
@@ -88,7 +87,6 @@ const StoryInputForm: React.FC<StoryInputFormProps> = ({ onSubmit, isLoading, is
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (generationService === GenerationService.GEMINI && !isApiKeyProvided) {
-      alert("Please enter your Gemini API Key above to use the Gemini service.");
       return;
     }
     if (!story.trim()) {
@@ -102,7 +100,6 @@ const StoryInputForm: React.FC<StoryInputFormProps> = ({ onSubmit, isLoading, is
 
   return (
     <form onSubmit={handleSubmit} className="story-input-form-container">
-      {/* Story Textarea */}
       <div className="form-group">
         <label htmlFor="story" className="form-label">Your Story:</label>
         <textarea
@@ -113,7 +110,6 @@ const StoryInputForm: React.FC<StoryInputFormProps> = ({ onSubmit, isLoading, is
         <p className="input-description">Min. 50 characters.</p>
       </div>
 
-      {/* Character Reference Section */}
        <div className="form-group character-reference-section">
         <label className="form-label">Character References (Optional, Max 5)</label>
         <p className="input-description">
@@ -173,7 +169,6 @@ const StoryInputForm: React.FC<StoryInputFormProps> = ({ onSubmit, isLoading, is
         </div>
       </div>
 
-      {/* Style and Era Grid */}
       <div className="form-group-grid">
         <div className="form-group">
           <label htmlFor="style" className="form-label">Comic Style:</label>
@@ -193,7 +188,6 @@ const StoryInputForm: React.FC<StoryInputFormProps> = ({ onSubmit, isLoading, is
         </div>
       </div>
       
-      {/* Aspect Ratio and Num Pages Grid */}
       <div className="form-group-grid">
         <div className="form-group">
           <label htmlFor="aspectRatio" className="form-label">Image Aspect Ratio:</label>
@@ -215,7 +209,6 @@ const StoryInputForm: React.FC<StoryInputFormProps> = ({ onSubmit, isLoading, is
         </div>
       </div>
 
-      {/* DYNAMIC MODEL SELECTION */}
        <div className="form-group-grid">
         <div className="form-group">
             <label htmlFor="textModel" className="form-label">Text Generation Model:</label>
@@ -249,7 +242,6 @@ const StoryInputForm: React.FC<StoryInputFormProps> = ({ onSubmit, isLoading, is
         </div>
       </div>
       
-      {/* Captions Section */}
       <div className="form-group">
         <div className="checkbox-group" style={{marginBottom: '0.5rem'}}>
           <input
@@ -287,10 +279,8 @@ const StoryInputForm: React.FC<StoryInputFormProps> = ({ onSubmit, isLoading, is
           Please enter your Gemini API Key to enable comic creation with Gemini.
         </p>
       )}
-      {/* Progress Bar */}
       {isLoading && currentProgress && (
         <div className="form-progress-container">
-          {/* ... progress bar jsx ... */}
         </div>
       )}
     </form>
