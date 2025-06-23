@@ -52,7 +52,6 @@ function extractJsonArray(text: string): any[] | null {
     return null;
 }
 
-// Helper to convert a data URL to a GenAI Part object
 const dataUrlToGenaiPart = (dataUrl: string): Part => {
     const match = dataUrl.match(/data:(image\/\w+);base64,(.*)/);
     if (!match) throw new Error("Invalid data URL format");
@@ -113,7 +112,7 @@ export const generateImageForPromptWithPollinations = async (
         
         const params = new URLSearchParams();
         params.append('model', model);
-        params.append('seed', String(FIXED_IMAGE_SEED)); // Lock seed for consistency
+        params.append('seed', String(FIXED_IMAGE_SEED));
 
         switch (aspectRatio) {
             case AspectRatio.PORTRAIT:
@@ -176,18 +175,21 @@ export const generateScenePromptsWithPollinations = async (options: StoryInputOp
     let responseText = '';
     try {
       if (attempt > 0) {
-        console.log(`Retrying Pollinations text generation (GET)... Attempt ${attempt + 1}`);
+        console.log(`Retrying Pollinations text generation (POST)... Attempt ${attempt + 1}`);
         await delay(2000);
       }
       
-      const encodedPrompt = encodeURIComponent(systemPrompt);
-      const url = `https://text.pollinations.ai/${encodedPrompt}`;
+      const url = `https://text.pollinations.ai/`;
 
-      const response = await fetch(url, { method: 'GET' });
+      const response = await fetch(url, { 
+          method: 'POST',
+          headers: { 'Content-Type': 'text/plain' },
+          body: systemPrompt 
+        });
 
       responseText = await response.text();
       if (!response.ok) {
-          throw new Error(`Pollinations text API returned status ${response.status}.`);
+          throw new Error(`Pollinations text API returned status ${response.status}. Response: ${responseText}`);
       }
 
       const parsedScenes = extractJsonArray(responseText);
@@ -196,7 +198,6 @@ export const generateScenePromptsWithPollinations = async (options: StoryInputOp
           throw new Error("AI response did not contain a valid, non-empty JSON array.");
       }
 
-      // Success! Format and return the data.
       return parsedScenes.map((panel, index) => ({
           scene_number: panel.scene_number || index + 1,
           image_prompt: `${panel.image_prompt}, in the style of ${style}, ${era}`,
@@ -211,7 +212,6 @@ export const generateScenePromptsWithPollinations = async (options: StoryInputOp
     }
   }
   
-  // If all retries fail, return an empty array to signal the fallback.
   console.error(`All attempts to generate scenes failed. Last error: ${lastError?.message}. Triggering fallback mode.`);
   return [];
 };
@@ -281,7 +281,6 @@ export const generateScenePrompts = async (apiKey: string, options: StoryInputOp
 
     if (hasCharacters && isMultimodal) {
         characters.forEach(char => {
-            // Add a text part to introduce the character image
             userParts.push({ text: `\nReference image for character: ${char.name}` });
             userParts.push(dataUrlToGenaiPart(char.image));
         });
@@ -297,13 +296,21 @@ export const generateScenePrompts = async (apiKey: string, options: StoryInputOp
         throw new Error("The AI model returned an empty response. It may have been blocked for safety reasons or another issue.");
     }
 
-    const parsedData: { scenes: PollinationsSceneOutput[] } = JSON.parse(result.text);
+    const parsedData = JSON.parse(result.text);
 
-    if (!parsedData || !Array.isArray(parsedData.scenes) || parsedData.scenes.length === 0) {
+    if (!parsedData || !Array.isArray(parsedData) || parsedData.length === 0) {
+        if(parsedData.scenes && Array.isArray(parsedData.scenes)) {
+             return parsedData.scenes.map((panel, index) => ({
+              scene_number: panel.scene_number || index + 1,
+              image_prompt: panel.image_prompt,
+              caption: options.includeCaptions ? panel.caption : null,
+              dialogues: options.includeCaptions && Array.isArray(panel.dialogues) ? panel.dialogues : [],
+            }));
+        }
       throw new Error("AI response could not be parsed into a valid array of scenes.");
     }
     
-    return parsedData.scenes.map((panel, index) => ({
+    return parsedData.map((panel, index) => ({
       scene_number: panel.scene_number || index + 1,
       image_prompt: panel.image_prompt,
       caption: options.includeCaptions ? panel.caption : null,
@@ -350,7 +357,7 @@ export const generateImageForPrompt = async (
               prompt: augmentedPrompt,
               number: 1,
               aspectRatio: apiAspectRatioValue,
-              seed: FIXED_IMAGE_SEED, // Lock the seed for consistency
+              seed: FIXED_IMAGE_SEED,
           });
 
           if (result.generatedImages && result.generatedImages.length > 0) {
@@ -363,7 +370,7 @@ export const generateImageForPrompt = async (
           lastError = error instanceof Error ? error : new Error(String(error));
           console.error(`Image generation attempt ${attempt + 1} failed for prompt "${augmentedPrompt}":`, lastError);
           if (attempt < maxRetries - 1) {
-              await delay(2000 * (attempt + 1)); // Wait longer on each retry
+              await delay(2000 * (attempt + 1));
           }
       }
   }
