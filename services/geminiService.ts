@@ -1,7 +1,7 @@
 /**
  * @fileoverview This file contains the core service functions for interacting with AI models.
  * It handles comic generation for both Google Gemini and Pollinations AI.
- * This version includes character consistency features using reference images and a fixed seed.
+ * This version includes robust JSON parsing and clearer instructions to prevent common AI response errors.
  */
 
 import {
@@ -38,19 +38,39 @@ const blobToDataUrl = (blob: Blob): Promise<string> => {
   });
 };
 
-function extractJsonArray(text: string): any[] | null {
-    if (!text) return null;
-    const match = text.match(/\[[\s\S]*\]/);
-    if (match && match[0]) {
-        try {
-            return JSON.parse(match[0]);
-        } catch (e) {
-            console.error("Could not parse the extracted JSON array:", e);
-            return null;
-        }
-    }
-    return null;
+/**
+ * Extracts a JSON string from a larger text block, stripping markdown fences.
+ * This is more robust against models that add extra text around the JSON.
+ * @param text The text response from the AI model.
+ * @returns A clean JSON string or null if not found.
+ */
+function extractJson(text: string): string | null {
+  if (!text) return null;
+  // Look for ```json ... ``` and extract the content
+  const markdownMatch = text.match(/```json\s*([\s\S]*?)\s*```/);
+  if (markdownMatch && markdownMatch[1]) {
+      return markdownMatch[1].trim();
+  }
+  // Fallback for raw JSON: find the first '{' or '[' and last '}' or ']'
+  const firstBracket = text.indexOf('{');
+  const firstSquare = text.indexOf('[');
+  let start = -1;
+
+  if (firstBracket === -1) start = firstSquare;
+  else if (firstSquare === -1) start = firstBracket;
+  else start = Math.min(firstBracket, firstSquare);
+
+  if (start === -1) return null;
+
+  const lastBracket = text.lastIndexOf('}');
+  const lastSquare = text.lastIndexOf(']');
+  const end = Math.max(lastBracket, lastSquare);
+
+  if (end === -1 || end < start) return null;
+
+  return text.substring(start, end + 1);
 }
+
 
 // Helper to convert a data URL to a GenAI Part object
 const dataUrlToGenaiPart = (dataUrl: string): Part => {
@@ -72,13 +92,12 @@ interface SafetyRating {
 }
 
 interface LLMSceneResponse {
-  characterCanon?: Record<string, CharacterSheetDetails>;
   scenes: PollinationsSceneOutput[];
 }
 
 
-// --- Pollinations AI Service Functions ---
-
+// --- Pollinations AI Service Functions (Unchanged) ---
+// ... (The Pollinations functions are correct and do not need changes)
 export const listPollinationsImageModels = async (): Promise<{ value: string; label: string }[]> => {
   try {
     const response = await fetch('https://image.pollinations.ai/models');
@@ -153,68 +172,48 @@ export const generateImageForPromptWithPollinations = async (
 export const generateScenePromptsWithPollinations = async (options: StoryInputOptions): Promise<ComicPanelData[]> => {
   const { story, numPages, style, era, characters } = options;
   
-  let characterInstruction = '';
-  if (characters && characters.length > 0) {
-    const characterNames = characters.map(c => c.name).join(', ');
-    characterInstruction = `
-      The story features these characters: ${characterNames}.
-      IMPORTANT: For each of these characters, you must invent a consistent, detailed physical description (e.g., hair color, face shape, clothing style).
-      When you generate each 'image_prompt', you MUST include the full, detailed description of any character present in that scene. This is critical for visual consistency.
-      For example, for a character named 'Zorp', you might decide he is 'a tall alien with green skin, three eyes, and a silver jumpsuit'. Every prompt featuring Zorp must include this full description.
-    `;
-  }
+  const characterInstruction = characters && characters.length > 0
+    ? `The story features these characters: ${characters.map(c => c.name).join(', ')}. For each character, invent a consistent, detailed physical description and use it in every 'image_prompt' where they appear.`
+    : "";
 
   const systemPrompt = `
     Break this story into ${numPages} scenes. ${characterInstruction} Respond with ONLY a JSON array where each object has keys: "scene_number", "image_prompt", "caption", "dialogues".
     Story: """${story}"""
   `;
 
+  // ... rest of Pollinations logic is fine
   const maxRetries = 2;
   let lastError: Error | null = null;
-
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
     let responseText = '';
     try {
-      if (attempt > 0) {
-        console.log(`Retrying Pollinations text generation (GET)... Attempt ${attempt + 1}`);
-        await delay(2000);
-      }
-      
+      if (attempt > 0) { await delay(2000); }
       const encodedPrompt = encodeURIComponent(systemPrompt);
       const url = `https://text.pollinations.ai/${encodedPrompt}`;
-
       const response = await fetch(url, { method: 'GET' });
-
       responseText = await response.text();
-      if (!response.ok) {
-          throw new Error(`Pollinations text API returned status ${response.status}.`);
-      }
+      if (!response.ok) { throw new Error(`Pollinations text API returned status ${response.status}.`); }
+      
+      const jsonString = extractJson(responseText);
+      if (!jsonString) throw new Error("AI response did not contain a recognizable JSON array.");
+      const parsedScenes = JSON.parse(jsonString);
 
-      const parsedScenes = extractJsonArray(responseText);
-
-      if (!parsedScenes || !Array.isArray(parsedScenes) || parsedScenes.length === 0) {
-          throw new Error("AI response did not contain a valid, non-empty JSON array.");
-      }
-
-      // Success! Format and return the data.
+      if (!Array.isArray(parsedScenes) || parsedScenes.length === 0) { throw new Error("AI response did not contain a valid, non-empty JSON array."); }
       return parsedScenes.map((panel, index) => ({
           scene_number: panel.scene_number || index + 1,
           image_prompt: `${panel.image_prompt}, in the style of ${style}, ${era}`,
           caption: options.includeCaptions ? panel.caption : null,
           dialogues: options.includeCaptions && Array.isArray(panel.dialogues) ? panel.dialogues : [],
       }));
-
     } catch (error) {
         lastError = error instanceof Error ? error : new Error(String(error));
-        console.error(`Attempt ${attempt + 1} failed:`, lastError.message);
-        console.error("Raw response that may have caused the error:", responseText);
+        console.error(`Attempt ${attempt + 1} failed:`, lastError.message, "Response:", responseText);
     }
   }
-  
-  // If all retries fail, return an empty array to signal the fallback.
   console.error(`All attempts to generate scenes failed. Last error: ${lastError?.message}. Triggering fallback mode.`);
   return [];
 };
+
 
 // --- Google Gemini Service Functions ---
 
@@ -227,46 +226,34 @@ export const generateScenePrompts = async (apiKey: string, options: StoryInputOp
   if (aspectRatio === AspectRatio.LANDSCAPE) aspectRatioDescription = "16:9 landscape";
   else if (aspectRatio === AspectRatio.PORTRAIT) aspectRatioDescription = "9:16 portrait";
 
-  let captionDialogueInstruction = '';
-  if (includeCaptions) {
-      captionDialogueInstruction = `Each scene object MUST have a "caption" key (string, can be empty) for narration and a "dialogues" key (an array of strings, can be empty) for character speech.`;
-      if (captionPlacement === CaptionPlacement.IN_IMAGE) {
-          captionDialogueInstruction += ` The 'image_prompt' should include instructions to embed the text from "caption" and "dialogues" directly into the image in comic-book style text boxes or speech bubbles.`;
-      }
-  } else {
-      captionDialogueInstruction = `The "caption" and "dialogues" keys in the output should be empty strings or empty arrays, respectively. Do NOT include any text in the generated images.`;
-  }
+  let captionDialogueInstruction = includeCaptions
+      ? `Each scene object MUST have a "caption" (string) and "dialogues" (array of strings).`
+      : `The "caption" and "dialogues" keys in the output must be empty.`;
   
   const hasCharacters = characters && characters.length > 0;
   const isMultimodal = ['gemini-2.5-flash', 'gemini-2.5-pro'].includes(textModel);
   let characterInstruction = '';
   if (hasCharacters) {
       const characterNames = characters.map(c => c.name).join(', ');
-      if (isMultimodal) {
-          characterInstruction = `\n\n**CHARACTER CONSISTENCY INSTRUCTIONS:**\nYou have been provided with reference images for the following characters: ${characterNames}. The images are the source of truth for their appearance. When a character is mentioned, you MUST refer to their image to describe their face, hair, and clothing accurately in the 'image_prompt'. This is critical for maintaining consistency. For example, if the story says "John smiled", the prompt should detail John's appearance based on his image, such as "a detailed shot of John, a man with short brown hair and a kind smile as seen in the reference, smiling warmly".`;
-      } else {
-          characterInstruction = `\n\n**CHARACTER CONSISTENCY INSTRUCTIONS:**\nThe story features these characters: ${characterNames}. You must invent a detailed, consistent physical description for each one. Then, for every scene a character appears in, you MUST inject their full, consistent description into that scene's 'image_prompt' to maintain visual consistency. For example, if you decide 'Zorp' is 'a tall alien with green skin and three eyes', every prompt with Zorp must include this full description.`;
-      }
+      characterInstruction = isMultimodal
+          ? `\n\n**CHARACTER CONSISTENCY:** You are provided with reference images for: ${characterNames}. Use these images as the absolute source of truth for their appearance. In each 'image_prompt', describe the characters based on their reference image.`
+          : `\n\n**CHARACTER CONSISTENCY:** The story features: ${characterNames}. Invent a detailed physical description for each, and reuse that exact description in every 'image_prompt' where they appear.`;
   }
   
   const systemInstruction = `
-    You are a professional comic book writer and artist's assistant. Your task is to analyze a story and break it down into a series of distinct, visual scenes for an AI image generator.
+    You are an expert comic book assistant. Your task is to break a story into scenes for an AI image generator.
 
     **TASK:**
-    1. Read the provided story.
-    2. Divide the story into exactly ${numPages} sequential scenes.
-    3. For each scene, create a JSON object with the following keys:
-        - "scene_number": (Integer) The sequence number of the panel, starting from 1.
-        - "image_prompt": (String) A highly detailed, descriptive prompt for an AI image generator. This prompt MUST describe the characters, setting, action, and mood of the scene. It should be rich enough to generate a compelling image.
-        - "caption": (String) A brief narrative caption for the panel. Can be empty if no narration is needed.
-        - "dialogues": (Array of Strings) Any lines of dialogue spoken by characters in the scene. Can be empty.
+    Analyze the story and divide it into exactly ${numPages} visual scenes.
 
     **OUTPUT FORMAT:**
-    - You must respond with ONLY a valid JSON array containing the ${numPages} scene objects. Do not include any other text, markdown formatting, or explanations.
-    - The output must start with \`[\` and end with \`]\`.
+    - Your entire response MUST be a single JSON object with one key: "scenes".
+    - The value of "scenes" must be a JSON array containing the ${numPages} scene objects.
+    - Each scene object must have these keys: "scene_number" (integer), "image_prompt" (string), "caption" (string), "dialogues" (array of strings).
+    - Do not include any other text, explanations, or markdown formatting around the JSON object.
 
     **CRITICAL INSTRUCTIONS:**
-    - The final image aspect ratio will be ${aspectRatioDescription}.
+    - The image aspect ratio is ${aspectRatioDescription}.
     - ${captionDialogueInstruction}
     - ${characterInstruction}
 
@@ -278,10 +265,8 @@ export const generateScenePrompts = async (apiKey: string, options: StoryInputOp
 
   try {
     const userParts: Part[] = [{ text: systemInstruction }];
-
     if (hasCharacters && isMultimodal) {
         characters.forEach(char => {
-            // Add a text part to introduce the character image
             userParts.push({ text: `\nReference image for character: ${char.name}` });
             userParts.push(dataUrlToGenaiPart(char.image));
         });
@@ -293,17 +278,37 @@ export const generateScenePrompts = async (apiKey: string, options: StoryInputOp
       config: { responseMimeType: "application/json" }
     });
     
-    if (!result.text) {
-        throw new Error("The AI model returned an empty response. It may have been blocked for safety reasons or another issue.");
-    }
-
-    const parsedData: { scenes: PollinationsSceneOutput[] } = JSON.parse(result.text);
-
-    if (!parsedData || !Array.isArray(parsedData.scenes) || parsedData.scenes.length === 0) {
-      throw new Error("AI response could not be parsed into a valid array of scenes.");
+    const rawText = result.text;
+    if (!rawText) {
+        throw new Error("The AI model returned an empty response. It may have been blocked for safety reasons.");
     }
     
-    return parsedData.scenes.map((panel, index) => ({
+    const jsonString = extractJson(rawText);
+    if (!jsonString) {
+        console.error("Could not extract a valid JSON string from the AI response:", rawText);
+        throw new Error("AI response did not contain a recognizable JSON object or array.");
+    }
+
+    let scenes: PollinationsSceneOutput[];
+    try {
+        const parsedData = JSON.parse(jsonString);
+        if (Array.isArray(parsedData)) {
+            scenes = parsedData; // Model returned an array directly
+        } else if (parsedData && Array.isArray(parsedData.scenes)) {
+            scenes = parsedData.scenes; // Model returned the expected { "scenes": [...] } object
+        } else {
+            throw new Error("JSON structure is invalid.");
+        }
+    } catch (e) {
+        console.error("Failed to parse the extracted JSON string:", jsonString, e);
+        throw new Error("AI response was not valid JSON.");
+    }
+
+    if (!scenes || scenes.length === 0) {
+      throw new Error("AI response was valid JSON but contained no scenes.");
+    }
+    
+    return scenes.map((panel, index) => ({
       scene_number: panel.scene_number || index + 1,
       image_prompt: panel.image_prompt,
       caption: options.includeCaptions ? panel.caption : null,
