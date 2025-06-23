@@ -7,11 +7,9 @@
 import {
   GoogleGenAI,
   GenerateContentResponse as SDKGenerateContentResponse,
-  GenerateImagesResponse as SDKGenerateImagesResponse,
-  Modality,
+  Part,
   HarmCategory,
   HarmProbability,
-  Part,
 } from "@google/genai";
 import {
   ComicPanelData,
@@ -20,7 +18,6 @@ import {
   CaptionPlacement,
   ComicStyle,
   ComicEra,
-  CharacterSheetDetails,
   PollinationsSceneOutput,
   PollinationsTextModel,
 } from '../types';
@@ -62,19 +59,6 @@ const dataUrlToGenaiPart = (dataUrl: string): Part => {
         },
     };
 };
-
-
-interface SafetyRating {
-  category: HarmCategory;
-  probability: HarmProbability;
-  blocked?: boolean;
-}
-
-interface LLMSceneResponse {
-  characterCanon?: Record<string, CharacterSheetDetails>;
-  scenes: PollinationsSceneOutput[];
-}
-
 
 // --- Pollinations AI Service Functions ---
 
@@ -180,12 +164,11 @@ export const generateScenePromptsWithPollinations = async (options: StoryInputOp
       }
       
       const url = `https://text.pollinations.ai/`;
-
       const response = await fetch(url, { 
           method: 'POST',
           headers: { 'Content-Type': 'text/plain' },
           body: systemPrompt 
-        });
+      });
 
       responseText = await response.text();
       if (!response.ok) {
@@ -221,11 +204,11 @@ export const generateScenePromptsWithPollinations = async (options: StoryInputOp
 export const generateScenePrompts = async (apiKey: string, options: StoryInputOptions): Promise<ComicPanelData[]> => {
   if (!apiKey) throw new Error("API Key is required to generate scene prompts.");
   const ai = new GoogleGenAI({ apiKey });
-  const { story, style, era, includeCaptions, numPages, aspectRatio, textModel, captionPlacement, characters } = options;
+  const { story, numPages, aspectRatio, textModel, captionPlacement, characters, includeCaptions } = options;
 
-  let aspectRatioDescription = "1:1 square";
-  if (aspectRatio === AspectRatio.LANDSCAPE) aspectRatioDescription = "16:9 landscape";
-  else if (aspectRatio === AspectRatio.PORTRAIT) aspectRatioDescription = "9:16 portrait";
+  let aspectRatioDescription = "1:1 square aspect ratio";
+  if (aspectRatio === AspectRatio.LANDSCAPE) aspectRatioDescription = "16:9 landscape aspect ratio";
+  else if (aspectRatio === AspectRatio.PORTRAIT) aspectRatioDescription = "9:16 portrait aspect ratio";
 
   let captionDialogueInstruction = '';
   if (includeCaptions) {
@@ -251,29 +234,13 @@ export const generateScenePrompts = async (apiKey: string, options: StoryInputOp
   
   const systemInstruction = `
     You are a professional comic book writer and artist's assistant. Your task is to analyze a story and break it down into a series of distinct, visual scenes for an AI image generator.
-
-    **TASK:**
-    1. Read the provided story.
-    2. Divide the story into exactly ${numPages} sequential scenes.
-    3. For each scene, create a JSON object with the following keys:
-        - "scene_number": (Integer) The sequence number of the panel, starting from 1.
-        - "image_prompt": (String) A highly detailed, descriptive prompt for an AI image generator. This prompt MUST describe the characters, setting, action, and mood of the scene. It should be rich enough to generate a compelling image.
-        - "caption": (String) A brief narrative caption for the panel. Can be empty if no narration is needed.
-        - "dialogues": (Array of Strings) Any lines of dialogue spoken by characters in the scene. Can be empty.
-
-    **OUTPUT FORMAT:**
-    - You must respond with ONLY a valid JSON array containing the ${numPages} scene objects. Do not include any other text, markdown formatting, or explanations.
-    - The output must start with \`[\` and end with \`]\`.
-
-    **CRITICAL INSTRUCTIONS:**
-    - The final image aspect ratio will be ${aspectRatioDescription}.
-    - ${captionDialogueInstruction}
-    - ${characterInstruction}
-
-    Here is the story:
-    """
-    ${story}
-    """
+    Divide the story into exactly ${numPages} sequential scenes.
+    Respond with ONLY a valid JSON array of the scene objects. Do not include any other text, markdown formatting, or explanations.
+    The output must start with \`[\` and end with \`]\`.
+    CRITICAL: The final image aspect ratio will be ${aspectRatioDescription}. Include this in your prompts.
+    ${captionDialogueInstruction}
+    ${characterInstruction}
+    Story: """${story}"""
   `;
 
   try {
@@ -285,32 +252,31 @@ export const generateScenePrompts = async (apiKey: string, options: StoryInputOp
             userParts.push(dataUrlToGenaiPart(char.image));
         });
     }
-    
-    const result: SDKGenerateContentResponse = await ai.models.generateContent({
-      model: textModel,
-      contents: [{ role: 'USER', parts: userParts }],
-      config: { responseMimeType: "application/json" }
+
+    const model = ai.getGenerativeModel({
+        model: textModel,
+        generationConfig: { responseMimeType: "application/json" }
     });
-    
-    if (!result.text) {
+
+    const result = await model.generateContent({ contents: [{ role: 'user', parts: userParts }] });
+    const response = result.response;
+    const responseText = response.text();
+
+    if (!responseText) {
         throw new Error("The AI model returned an empty response. It may have been blocked for safety reasons or another issue.");
     }
+    
+    let parsedData = JSON.parse(responseText);
 
-    const parsedData = JSON.parse(result.text);
+    if (parsedData.scenes) {
+        parsedData = parsedData.scenes;
+    }
 
-    if (!parsedData || !Array.isArray(parsedData) || parsedData.length === 0) {
-        if(parsedData.scenes && Array.isArray(parsedData.scenes)) {
-             return parsedData.scenes.map((panel, index) => ({
-              scene_number: panel.scene_number || index + 1,
-              image_prompt: panel.image_prompt,
-              caption: options.includeCaptions ? panel.caption : null,
-              dialogues: options.includeCaptions && Array.isArray(panel.dialogues) ? panel.dialogues : [],
-            }));
-        }
+    if (!Array.isArray(parsedData) || parsedData.length === 0) {
       throw new Error("AI response could not be parsed into a valid array of scenes.");
     }
     
-    return parsedData.map((panel, index) => ({
+    return parsedData.map((panel: any, index: number) => ({
       scene_number: panel.scene_number || index + 1,
       image_prompt: panel.image_prompt,
       caption: options.includeCaptions ? panel.caption : null,
@@ -331,48 +297,55 @@ export const generateImageForPrompt = async (
   initialImagePrompt: string,
   inputAspectRatio: AspectRatio,
   imageModelName: string,
-  style: ComicStyle | string, 
-  era: ComicEra | string     
+  style: ComicStyle | string,
+  era: ComicEra | string
 ): Promise<string> => {
   if (!apiKey) throw new Error("API Key is required for image generation.");
   const ai = new GoogleGenAI({ apiKey });
+  
+  let aspectRatioDescription = "square 1:1 aspect ratio";
+  if (inputAspectRatio === AspectRatio.LANDSCAPE) aspectRatioDescription = "landscape 16:9 aspect ratio";
+  else if (inputAspectRatio === AspectRatio.PORTRAIT) aspectRatioDescription = "portrait 9:16 aspect ratio";
 
-  let apiAspectRatioValue: "1:1" | "9:16" | "16:9";
-  switch (inputAspectRatio) {
-    case AspectRatio.SQUARE: apiAspectRatioValue = "1:1"; break;
-    case AspectRatio.PORTRAIT: apiAspectRatioValue = "9:16"; break;
-    case AspectRatio.LANDSCAPE: apiAspectRatioValue = "16:9"; break;
-    default: apiAspectRatioValue = "1:1";
-  }
-
-  const augmentedPrompt = `${initialImagePrompt}, cinematic still, in the distinct visual style of ${style}, inspired by the ${era} era.`;
+  const augmentedPrompt = `${initialImagePrompt}, ${aspectRatioDescription}, cinematic still, in the distinct visual style of ${style}, inspired by the ${era} era.`;
 
   const maxRetries = 2;
   let lastError: Error | null = null;
 
-  for (let attempt = 0; attempt < maxRetries; attempt++) {
-      try {
-          const result: SDKGenerateImagesResponse = await ai.images.generate({
-              model: imageModelName,
-              prompt: augmentedPrompt,
-              number: 1,
-              aspectRatio: apiAspectRatioValue,
-              seed: FIXED_IMAGE_SEED,
-          });
+  const imageModel = ai.getGenerativeModel({ model: imageModelName });
 
-          if (result.generatedImages && result.generatedImages.length > 0) {
-              const imageBytes = result.generatedImages[0].image.imageBytes;
-              return `data:image/jpeg;base64,${imageBytes}`;
-          } else {
-              throw new Error("The API did not return any images.");
-          }
-      } catch (error) {
-          lastError = error instanceof Error ? error : new Error(String(error));
-          console.error(`Image generation attempt ${attempt + 1} failed for prompt "${augmentedPrompt}":`, lastError);
-          if (attempt < maxRetries - 1) {
-              await delay(2000 * (attempt + 1));
-          }
+  for (let attempt = 0; attempt < maxRetries; attempt++) {
+    try {
+      // The new SDK uses generateContent for image models like Imagen 3
+      const result = await imageModel.generateContent(augmentedPrompt);
+      const response = result.response;
+
+      if (response.promptFeedback?.blockReason) {
+        throw new Error(`Request was blocked due to ${response.promptFeedback.blockReason}.`);
       }
+
+      const candidate = response.candidates?.[0];
+      if (!candidate || candidate.finishReason !== 'OK') {
+        throw new Error(`Image generation failed or was stopped. Reason: ${candidate?.finishReason}`);
+      }
+      
+      const imagePart = candidate.content.parts.find(p => !!p.inlineData);
+      if (!imagePart || !imagePart.inlineData) {
+        throw new Error("The API did not return a valid image in its response.");
+      }
+      
+      const base64Image = imagePart.inlineData.data;
+      const mimeType = imagePart.inlineData.mimeType;
+
+      return `data:${mimeType};base64,${base64Image}`;
+
+    } catch (error) {
+      lastError = error instanceof Error ? error : new Error(String(error));
+      console.error(`Image generation attempt ${attempt + 1} failed for prompt "${augmentedPrompt}":`, lastError);
+      if (attempt < maxRetries - 1) {
+        await delay(2000 * (attempt + 1));
+      }
+    }
   }
 
   throw new Error(`Failed to generate image after ${maxRetries} attempts. Last error: ${lastError?.message}`);
