@@ -6,10 +6,9 @@
 
 import {
   GoogleGenerativeAI,
-  GenerateContentResponse as SDKGenerateContentResponse,
   Part,
   HarmCategory,
-  HarmProbability,
+  HarmBlockThreshold,
 } from "@google/genai";
 import {
   ComicPanelData,
@@ -59,6 +58,27 @@ const dataUrlToGenaiPart = (dataUrl: string): Part => {
         },
     };
 };
+
+// Lenient safety settings for a creative application
+const safetySettings = [
+    {
+        category: HarmCategory.HARM_CATEGORY_HARASSMENT,
+        threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE,
+    },
+    {
+        category: HarmCategory.HARM_CATEGORY_HATE_SPEECH,
+        threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE,
+    },
+    {
+        category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT,
+        threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE,
+    },
+    {
+        category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT,
+        threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE,
+    },
+];
+
 
 // --- Pollinations AI Service Functions ---
 
@@ -255,7 +275,8 @@ export const generateScenePrompts = async (apiKey: string, options: StoryInputOp
 
     const model = genAI.getGenerativeModel({
         model: textModel,
-        generationConfig: { responseMimeType: "application/json" }
+        generationConfig: { responseMimeType: "application/json" },
+        safetySettings
     });
 
     const result = await model.generateContent({ contents: [{ role: 'user', parts: userParts }] });
@@ -312,7 +333,7 @@ export const generateImageForPrompt = async (
   const maxRetries = 2;
   let lastError: Error | null = null;
 
-  const imageModel = genAI.getGenerativeModel({ model: imageModelName });
+  const imageModel = genAI.getGenerativeModel({ model: imageModelName, safetySettings });
 
   for (let attempt = 0; attempt < maxRetries; attempt++) {
     try {
@@ -325,7 +346,8 @@ export const generateImageForPrompt = async (
 
       const candidate = response.candidates?.[0];
       if (!candidate || candidate.finishReason !== 'OK') {
-        throw new Error(`Image generation failed or was stopped. Reason: ${candidate?.finishReason}`);
+        const finishMessage = candidate?.finishReason ? `Reason: ${candidate.finishReason}` : "Reason: Unknown";
+        throw new Error(`Image generation failed or was stopped. ${finishMessage}`);
       }
       
       const imagePart = candidate.content.parts.find(p => !!p.inlineData);
