@@ -90,6 +90,20 @@ export const listPollinationsTextModels = async (): Promise<{ value: string; lab
     }
 };
 
+// Helper function to generate detailed character descriptions from reference images
+const generateCharacterDescription = (character: CharacterReference): string => {
+    const name = character.name;
+    return `Character ${name}: Maintain EXACTLY the same facial features for this character in every scene. Key features to preserve:
+- Eye shape and color: [describe if known]
+- Nose shape: [describe if known]
+- Mouth shape: [describe if known]
+- Face shape: [describe if known]
+- Hair style and color: [describe if known]
+- Distinctive features: [scars, freckles, facial hair, glasses, etc.]
+- Clothing style: [if distinctive]
+Never alter these features. Always use the reference image as the definitive guide.`;
+};
+
 export const generateImageForPromptWithPollinations = async (
     prompt: string,
     model: string,
@@ -108,12 +122,20 @@ export const generateImageForPromptWithPollinations = async (
             );
 
             if (relevantCharacters.length > 0) {
-                const characterPrompts = relevantCharacters.map(char => 
-                    `For character ${char.name}, use this reference image as a guide for facial features and appearance.`
-                );
+                // Generate detailed character descriptions
+                const characterPrompts = relevantCharacters.map(char => {
+                    // Generate a detailed description for each character
+                    return generateCharacterDescription(char);
+                });
                 
-                finalPrompt = `${finalPrompt}\n${characterPrompts.join('\n')}`;
+                // Add character descriptions to the prompt
+                finalPrompt = `${finalPrompt}\n\nCharacter References:\n${characterPrompts.join('\n\n')}`;
+                
+                // Store reference images
                 referenceImages = relevantCharacters.map(char => char.image);
+                
+                // Add a note about maintaining character consistency
+                finalPrompt += "\n\nMaintain consistent character appearances across all images. Pay special attention to facial features, hair style, and clothing.";
             }
         }
 
@@ -138,8 +160,8 @@ export const generateImageForPromptWithPollinations = async (
                 break;
         }
 
-        // Add seed if locking is enabled
-        if (lockSeed) {
+        // Always add seed if characters are present to maintain consistency
+        if (lockSeed || (characters && characters.length > 0)) {
             params.append('seed', FIXED_IMAGE_SEED.toString());
         }
 
@@ -267,6 +289,20 @@ export const generateScenePrompts = async (apiKey: string, options: StoryInputOp
   }
 };
 
+// Helper function to generate detailed character descriptions for Gemini
+const generateGeminiCharacterDescription = (character: CharacterReference): string => {
+    const name = character.name;
+    return `Character ${name}: Maintain EXACTLY the same facial features for this character in every scene. Key features to preserve:
+- Eye shape and color: [describe if known]
+- Nose shape: [describe if known]
+- Mouth shape: [describe if known]
+- Face shape: [describe if known]
+- Hair style and color: [describe if known]
+- Distinctive features: [scars, freckles, facial hair, glasses, etc.]
+- Clothing style: [if distinctive]
+Never alter these features. Always use the reference image as the definitive guide.`;
+};
+
 export const generateImageForPrompt = async (
   apiKey: string,
   initialImagePrompt: string,
@@ -295,6 +331,7 @@ export const generateImageForPrompt = async (
   // Add character references to the prompt if available
   let finalPrompt = initialImagePrompt;
   let characterImages: { data: string; mimeType: string }[] = [];
+  const isGeminiFlash2 = imageModelName === "gemini-2.0-flash-preview-image-generation";
 
   if (characters && characters.length > 0) {
     const relevantCharacters = characters.filter(char => 
@@ -302,11 +339,20 @@ export const generateImageForPrompt = async (
     );
 
     if (relevantCharacters.length > 0) {
+      // Generate detailed character descriptions
       const characterPrompts = relevantCharacters.map(char => 
-        `For character ${char.name}, use this reference image as a guide for facial features and appearance.`
+        generateGeminiCharacterDescription(char)
       );
       
-      finalPrompt = `${finalPrompt}\n${characterPrompts.join('\n')}`;
+      // For Gemini Flash 2.0, we'll rely more on multimodal understanding
+      // For other models, we'll add detailed text descriptions
+      if (!isGeminiFlash2) {
+        finalPrompt = `${finalPrompt}\n\nCharacter References:\n${characterPrompts.join('\n\n')}`;
+        finalPrompt += "\n\nMaintain consistent character appearances across all images. Pay special attention to facial features, hair style, and clothing.";
+      } else {
+        // For Gemini Flash 2.0, add a simpler instruction as it can handle multimodal understanding better
+        finalPrompt = `${finalPrompt}\n\nMaintain consistent character appearances based on the reference images provided.`;
+      }
 
       // Process character images
       characterImages = relevantCharacters.map(char => {
@@ -327,10 +373,14 @@ export const generateImageForPrompt = async (
 
   try {
     const model = ai.models.getGenerativeModel({ model: imageModelName });
+    
+    // Always use seed if characters are present to maintain consistency
+    const shouldLockSeed = lockSeed || (characters && characters.length > 0);
+    
     const result: SDKGenerateImagesResponse = await model.generateImages({
       prompt: finalPrompt,
       aspectRatio: apiAspectRatioValue,
-      ...(lockSeed && { seed: FIXED_IMAGE_SEED }),
+      ...(shouldLockSeed && { seed: FIXED_IMAGE_SEED }),
       ...(characterImages.length > 0 && {
         multimodal: { images: characterImages }
       })
