@@ -51,13 +51,6 @@ export interface ComicPanelData {
   scene_description_for_prompt?: string; // Internal helper for Gemini
 }
 
-// Added for character consistency
-export interface CharacterReference {
-  id: string;
-  name: string;
-  image: string; // base64 data URL
-}
-
 // Updated to include the generation service and use string for models
 export interface StoryInputOptions {
   story: string;
@@ -70,7 +63,6 @@ export interface StoryInputOptions {
   textModel: string;  // Generic string to support both services
   captionPlacement: CaptionPlacement;
   generationService: GenerationService; // Added
-  characters: CharacterReference[]; // Added for character consistency
 }
 
 export interface GenerationProgress {
@@ -126,4 +118,4 @@ export interface CharacterSheetDetails {
     appearance: string;
     attire: string;
     genderIdentityNote?: string | null;
-  }
+}
