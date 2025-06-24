@@ -586,6 +586,13 @@ body {
   border: 1px solid var(--md-sys-color-outline-variant);
   max-width: 90vw;
   width: 400px;
+  transition: opacity 0.3s ease-out, visibility 0.3s ease-out;
+}
+
+/* Style for when loading is complete */
+.loading-overlay.loading-complete {
+  opacity: 0.9;
+  border-color: var(--md-sys-color-primary);
 }
 
 .loading-spinner {
@@ -655,6 +662,12 @@ body {
   inset: 0;
   background-color: var(--md-sys-color-scrim);
   z-index: -1;
+  transition: opacity 0.3s ease-out;
+}
+
+/* Backdrop style for when loading is complete */
+.loading-overlay.loading-complete::before {
+  opacity: 0.7;
 }
 
 /* Form Progress (inline, inside form card) - Dark Theme */
