@@ -20,6 +20,7 @@ const App: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [progress, setProgress] = useState<GenerationProgress | undefined>(undefined);
   const [currentAspectRatio, setCurrentAspectRatio] = useState<AspectRatio>(AVAILABLE_ASPECT_RATIOS[0].value);
+  const [imagesLoaded, setImagesLoaded] = useState<boolean[]>([]);
 
   const handleComicGeneration = useCallback(async (options: StoryInputOptions) => {
     if (options.generationService === GenerationService.GEMINI && !apiKey.trim()) {
@@ -65,7 +66,10 @@ const App: React.FC = () => {
         totalPanels: totalPanels
       });
 
-      for (let i = 0; i < totalPanels; i++) {
+      const loadedStatus = Array(totalPanels).fill(false);
+    setImagesLoaded(loadedStatus);
+    
+    for (let i = 0; i < totalPanels; i++) {
         const panelProgressPercentage = 10 + ((i + 1) / totalPanels) * 90;
         setProgress({
           currentStep: `Generating image for panel ${i + 1}...`,
@@ -89,22 +93,41 @@ const App: React.FC = () => {
               options.characters, options.lockSeed
             );
           }
-          setComicPanels(prevPanels =>
-            prevPanels.map(p => p.scene_number === panel.scene_number ? { ...p, imageUrl } : p)
-          );
+        setComicPanels((prevPanels: ComicPanelData[]) =>
+          prevPanels.map(p => p.scene_number === panel.scene_number ? { ...p, imageUrl } : p)
+        );
+          
+          // Update loaded status for this panel
+          loadedStatus[i] = true;
+          setImagesLoaded([...loadedStatus]);
         } catch (imgError) {
           console.error(`Error generating image for panel ${panel.scene_number}:`, imgError);
-          setComicPanels(prevPanels =>
-            prevPanels.map(p => p.scene_number === panel.scene_number ? { ...p, imageUrl: 'error' } : p)
-          );
-          setError(prevError => {
+        setComicPanels((prevPanels: ComicPanelData[]) =>
+          prevPanels.map(p => p.scene_number === panel.scene_number ? { ...p, imageUrl: 'error' } : p)
+        );
+          setError((prevError: string | null) => {
             const imgErrMessage = imgError instanceof Error ? imgError.message : "Unknown image error";
             const panelErrMessage = `Error on panel ${panel.scene_number}: ${imgErrMessage}`;
             return prevError ? `${prevError}\n${panelErrMessage}` : panelErrMessage;
           });
+          
+          // Mark as loaded even if error
+          loadedStatus[i] = true;
+          setImagesLoaded([...loadedStatus]);
+        }
+        
+        // Check if all images are loaded
+        if (loadedStatus.every(status => status)) {
+          setProgress({ currentStep: "Comic generation complete!", percentage: 100, totalPanels: totalPanels, currentPanel: totalPanels });
+          setIsLoading(false);
         }
       }
-      setProgress({ currentStep: "Comic generation complete!", percentage: 100, totalPanels: totalPanels, currentPanel: totalPanels });
+      
+      // Final check in case all images loaded before loop completed
+      if (imagesLoaded.every((status: boolean) => status)) {
+        setProgress({ currentStep: "Comic generation complete!", percentage: 100, totalPanels: totalPanels, currentPanel: totalPanels });
+        setIsLoading(false);
+      }
 
     } catch (err) {
       console.error("Comic generation failed:", err);
@@ -112,8 +135,7 @@ const App: React.FC = () => {
       setError(errorMessage);
       setComicPanels([]);
       setProgress(undefined);
-    } finally {
-      setTimeout(() => setIsLoading(false), 2000);
+      setIsLoading(false); // Ensure loading is set to false even on error
     }
   }, [apiKey]);
 
@@ -187,7 +209,7 @@ const App: React.FC = () => {
             if (panel.dialogues && panel.dialogues.length > 0) {
               pdf.setFontSize(10);
               pdf.setTextColor(50);
-              panel.dialogues.forEach(dialogue => {
+              panel.dialogues.forEach((dialogue: string) => {
                 if (currentTextY > A4_HEIGHT_MM - MARGIN_MM - 10) {
                     pdf.addPage();
                     currentTextY = MARGIN_MM;
