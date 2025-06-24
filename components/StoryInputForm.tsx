@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { StoryInputOptions, ComicStyle, ComicEra, AspectRatio, GenerationProgress, CaptionPlacement, GenerationService, CharacterReference } from '../types';
+import { StoryInputOptions, ComicStyle, ComicEra, AspectRatio, GenerationProgress, CaptionPlacement, GenerationService } from '../types';
 import {
   AVAILABLE_STYLES,
   AVAILABLE_ERAS,
@@ -39,10 +39,6 @@ const StoryInputForm: React.FC<StoryInputFormProps> = ({ onSubmit, isLoading, is
   const [pollinationsImageModels, setPollinationsImageModels] = useState<{ value: string; label: string }[]>([]);
   const [pollinationsTextModels, setPollinationsTextModels] = useState<{ value: string; label: string }[]>([]);
   const [arePollinationsModelsLoading, setArePollinationsModelsLoading] = useState(false);
-  
-  const [characters, setCharacters] = useState<CharacterReference[]>([]);
-  const [newCharName, setNewCharName] = useState('');
-
 
   useEffect(() => {
     if (generationService === GenerationService.POLLINATIONS) {
@@ -61,45 +57,24 @@ const StoryInputForm: React.FC<StoryInputFormProps> = ({ onSubmit, isLoading, is
     }
   }, [generationService]);
 
-  const handleCharImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0] && newCharName.trim()) {
-      const file = e.target.files[0];
-      const reader = new FileReader();
-      reader.onload = (loadEvent) => {
-        const newCharacter: CharacterReference = {
-          id: `char-${Date.now()}`,
-          name: newCharName.trim(),
-          image: loadEvent.target?.result as string,
-        };
-        setCharacters(prev => [...prev, newCharacter]);
-        setNewCharName('');
-      };
-      reader.readAsDataURL(file);
-    }
-    e.target.value = '';
-  };
-
-  const handleRemoveCharacter = (id: string) => {
-    setCharacters(prev => prev.filter(char => char.id !== id));
-  };
-
-
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (generationService === GenerationService.GEMINI && !isApiKeyProvided) {
+      alert("Please enter your Gemini API Key above to use the Gemini service.");
       return;
     }
     if (!story.trim()) {
       alert("Please enter a story.");
       return;
     }
-    onSubmit({ story, style, era, aspectRatio, includeCaptions, numPages, imageModel, textModel, captionPlacement, generationService, characters });
+    onSubmit({ story, style, era, aspectRatio, includeCaptions, numPages, imageModel, textModel, captionPlacement, generationService });
   };
 
   const isSubmitDisabled = isLoading || (generationService === GenerationService.GEMINI && !isApiKeyProvided);
 
   return (
     <form onSubmit={handleSubmit} className="story-input-form-container">
+      {/* Story Textarea - Unchanged */}
       <div className="form-group">
         <label htmlFor="story" className="form-label">Your Story:</label>
         <textarea
@@ -108,56 +83,6 @@ const StoryInputForm: React.FC<StoryInputFormProps> = ({ onSubmit, isLoading, is
           required minLength={50} maxLength={60000}
         />
         <p className="input-description">Min. 50 characters.</p>
-      </div>
-
-       <div className="form-group character-reference-section">
-        <label className="form-label">Character References (Optional, Max 5)</label>
-        <p className="input-description">
-          Add character images to maintain consistency. Name your character, then click "Add Character" to upload an image.
-        </p>
-
-        <div className="character-list">
-          {characters.map(char => (
-            <div key={char.id} className="character-chip">
-              <img src={char.image} alt={char.name} className="character-thumbnail" />
-              <span className="character-name">{char.name}</span>
-              <button type="button" onClick={() => handleRemoveCharacter(char.id)} className="character-remove-btn" aria-label={`Remove ${char.name}`}>×</button>
-            </div>
-          ))}
-        </div>
-
-        {characters.length < 5 && (
-          <div className="add-character-controls">
-            <div className="form-input-container" style={{ flexGrow: 1 }}>
-              <label htmlFor="newCharName" className="form-label">Character Name</label>
-              <input
-                type="text"
-                id="newCharName"
-                value={newCharName}
-                onChange={(e) => setNewCharName(e.target.value)}
-                className="form-input"
-                placeholder="E.g., Captain Astro"
-              />
-            </div>
-            <input
-              type="file"
-              id="character-image-input"
-              accept="image/png, image/jpeg, image/webp"
-              style={{ display: 'none' }}
-              onChange={handleCharImageUpload}
-            />
-            <button
-              type="button"
-              className="btn btn-secondary"
-              onClick={() => document.getElementById('character-image-input')?.click()}
-              disabled={!newCharName.trim()}
-              aria-label="Add character image"
-            >
-              <span className="material-icons-outlined">add_photo_alternate</span>
-              Add Character
-            </button>
-          </div>
-        )}
       </div>
 
        <div className="form-group">
@@ -169,6 +94,7 @@ const StoryInputForm: React.FC<StoryInputFormProps> = ({ onSubmit, isLoading, is
         </div>
       </div>
 
+      {/* Style and Era Grid - Unchanged */}
       <div className="form-group-grid">
         <div className="form-group">
           <label htmlFor="style" className="form-label">Comic Style:</label>
@@ -188,6 +114,7 @@ const StoryInputForm: React.FC<StoryInputFormProps> = ({ onSubmit, isLoading, is
         </div>
       </div>
       
+      {/* Aspect Ratio and Num Pages Grid - Unchanged */}
       <div className="form-group-grid">
         <div className="form-group">
           <label htmlFor="aspectRatio" className="form-label">Image Aspect Ratio:</label>
@@ -209,6 +136,7 @@ const StoryInputForm: React.FC<StoryInputFormProps> = ({ onSubmit, isLoading, is
         </div>
       </div>
 
+      {/* DYNAMIC MODEL SELECTION */}
        <div className="form-group-grid">
         <div className="form-group">
             <label htmlFor="textModel" className="form-label">Text Generation Model:</label>
@@ -242,6 +170,7 @@ const StoryInputForm: React.FC<StoryInputFormProps> = ({ onSubmit, isLoading, is
         </div>
       </div>
       
+      {/* Captions Section - Unchanged */}
       <div className="form-group">
         <div className="checkbox-group" style={{marginBottom: '0.5rem'}}>
           <input
@@ -279,8 +208,10 @@ const StoryInputForm: React.FC<StoryInputFormProps> = ({ onSubmit, isLoading, is
           Please enter your Gemini API Key to enable comic creation with Gemini.
         </p>
       )}
+      {/* Progress Bar - Unchanged */}
       {isLoading && currentProgress && (
         <div className="form-progress-container">
+          {/* ... progress bar jsx ... */}
         </div>
       )}
     </form>
