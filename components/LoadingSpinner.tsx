@@ -8,8 +8,11 @@ interface LoadingSpinnerProps {
 }
 
 const LoadingSpinner: React.FC<LoadingSpinnerProps> = ({ progress, message }) => {
+  // Add a class to the overlay when progress is at 100% to help with transition
+  const isComplete = progress && progress.percentage === 100;
+  
   return (
-    <div className="loading-overlay">
+    <div className={`loading-overlay ${isComplete ? 'loading-complete' : ''}`}>
       <div className="loading-spinner"></div>
       {message && <p className="loading-message">{message}</p>}
       {progress && (
