@@ -63,6 +63,8 @@ export interface StoryInputOptions {
   textModel: string;  // Generic string to support both services
   captionPlacement: CaptionPlacement;
   generationService: GenerationService; // Added
+  characters: CharacterReference[]; // Added character references
+  lockSeed?: boolean; // Added seed locking option
 }
 
 export interface GenerationProgress {
@@ -118,4 +120,11 @@ export interface CharacterSheetDetails {
     appearance: string;
     attire: string;
     genderIdentityNote?: string | null;
+}
+
+export interface CharacterReference {
+  id: string;
+  name: string;
+  image: string;
+  description?: string;
 }

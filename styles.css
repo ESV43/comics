@@ -409,33 +409,48 @@ body {
 
 /* Error Message Styling - Dark Theme */
 .error-message-container {
-  background-color: var(--md-sys-color-error-container); /* Dark red base */
-  color: var(--md-sys-color-on-error-container); /* Light text on dark red */
-  padding: 1rem 1.5rem;
+  background-color: var(--md-sys-color-error-container);
+  color: var(--md-sys-color-on-error-container);
+  padding: 1rem;
   border-radius: var(--md-sys-shape-corner-medium);
-  margin: 2rem auto;
+  margin: 0 auto 2rem;
   max-width: 768px;
-  border: 1px solid var(--md-sys-color-error); /* Bright red border */
-  box-shadow: var(--md-sys-elevation-level-1);
+  position: relative;
+  border: 1px solid var(--md-sys-color-error);
+  box-shadow: var(--md-sys-elevation-level-2);
 }
 .error-message-container h3 {
-  font-size: 1.125rem;
+  font-size: 1rem;
   font-weight: 600;
   margin-bottom: 0.5rem;
-  color: var(--md-sys-color-error); /* Bright red for title */
+  padding-right: 2rem;
 }
 .error-message-container p {
   font-size: 0.875rem;
-  margin-bottom: 1rem;
+  white-space: pre-wrap;
+  margin-bottom: 0.5rem;
+}
+.error-message-container p:last-child {
+  margin-bottom: 0;
 }
 .error-dismiss-btn {
-  background-color: var(--md-sys-color-error); /* Bright red button */
-  color: var(--md-sys-color-on-error); /* Black text on bright red */
-  padding: 0.5rem 1rem;
-  font-size: 0.75rem;
+  position: absolute;
+  top: 0.5rem;
+  right: 0.5rem;
+  background: none;
+  border: none;
+  color: var(--md-sys-color-on-error-container);
+  cursor: pointer;
+  padding: 0.25rem;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.25rem;
+  line-height: 1;
 }
-.error-dismiss-btn:hover:not(:disabled) {
-   background-color: color-mix(in srgb, var(--md-sys-color-error) 90%, #FFFFFF 10%);
+.error-dismiss-btn:hover {
+  background-color: rgba(0, 0, 0, 0.1);
 }
 
 /* Comic Display - Dark Theme */
@@ -555,26 +570,34 @@ body {
 /* Loading Spinner Overlay - Dark Theme */
 .loading-overlay {
   position: fixed;
-  inset: 0;
-  background-color: var(--md-sys-color-scrim); /* Darker scrim */
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background-color: var(--md-sys-color-surface-container-high);
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   z-index: 1000;
-  padding: 1rem;
+  padding: 2rem;
   text-align: center;
+  border-radius: var(--md-sys-shape-corner-large);
+  box-shadow: var(--md-sys-elevation-level-3);
+  border: 1px solid var(--md-sys-color-outline-variant);
+  max-width: 90vw;
+  width: 400px;
 }
 
 .loading-spinner {
   width: 3.5rem;
   height: 3.5rem;
-  border: 4px solid var(--md-sys-color-surface-variant); /* Dark track */
-  border-top-color: var(--md-sys-color-primary); /* Neon primary spinner */
+  border: 4px solid var(--md-sys-color-surface-variant);
+  border-top-color: var(--md-sys-color-primary);
   border-radius: 50%;
   animation: spin 0.8s linear infinite;
   margin-bottom: 1.5rem;
 }
+
 @keyframes spin {
   to { transform: rotate(360deg); }
 }
@@ -582,43 +605,56 @@ body {
 .loading-message {
   font-size: 1.125rem;
   font-weight: 500;
-  color: var(--md-sys-color-on-background); /* Light text on scrim */
+  color: var(--md-sys-color-on-surface);
   margin-bottom: 0.5rem;
-  text-shadow: 0 0 3px var(--md-sys-color-background); /* Text shadow for readability */
 }
+
 .loading-progress-info {
   width: 100%;
   max-width: 320px;
 }
+
 .loading-progress-step {
   font-size: 0.875rem;
-  color: var(--md-sys-color-on-background);
+  color: var(--md-sys-color-on-surface);
   margin-bottom: 0.5rem;
-   text-shadow: 0 0 3px var(--md-sys-color-background);
 }
+
 .loading-progress-panel-info {
   font-size: 0.75rem;
-  color: var(--md-sys-color-on-surface-variant); /* Muted light text */
+  color: var(--md-sys-color-on-surface-variant);
   margin-bottom: 0.75rem;
 }
+
 .loading-progress-bar-container {
   width: 100%;
-  background-color: color-mix(in srgb, var(--md-sys-color-primary) 30%, transparent); /* Darker primary for track */
+  background-color: var(--md-sys-color-surface-variant);
   border-radius: var(--md-sys-shape-corner-full);
   height: 0.5rem;
   margin-bottom: 0.5rem;
   overflow: hidden;
 }
+
 .loading-progress-bar {
-  background-color: var(--md-sys-color-primary); /* Neon primary bar */
+  background-color: var(--md-sys-color-primary);
   height: 100%;
   border-radius: var(--md-sys-shape-corner-full);
   transition: width 0.3s ease-in-out;
 }
+
 .loading-progress-percentage {
   font-size: 0.75rem;
-  color: var(--md-sys-color-primary); /* Neon primary for percentage */
+  color: var(--md-sys-color-primary);
   font-weight: bold;
+}
+
+/* Add a semi-transparent backdrop */
+.loading-overlay::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-color: var(--md-sys-color-scrim);
+  z-index: -1;
 }
 
 /* Form Progress (inline, inside form card) - Dark Theme */
@@ -680,4 +716,66 @@ body {
   font-size: 0.75rem;
   color: var(--md-sys-color-outline); /* Medium grey for fine print */
   margin-top: 0.25rem;
+}
+
+/* Character Reference Section */
+.character-reference-section {
+  background-color: var(--md-sys-color-surface-container);
+  border-radius: var(--md-sys-shape-corner-medium);
+  padding: 1.5rem;
+  border: 1px solid var(--md-sys-color-outline-variant);
+}
+
+.character-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.character-chip {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background-color: var(--md-sys-color-surface-container-high);
+  padding: 0.5rem;
+  border-radius: var(--md-sys-shape-corner-full);
+  border: 1px solid var(--md-sys-color-outline);
+}
+
+.character-thumbnail {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.character-name {
+  color: var(--md-sys-color-on-surface);
+  font-size: 0.875rem;
+}
+
+.character-remove-btn {
+  background: none;
+  border: none;
+  color: var(--md-sys-color-error);
+  cursor: pointer;
+  padding: 0.25rem;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.25rem;
+  line-height: 1;
+}
+
+.character-remove-btn:hover {
+  background-color: var(--md-sys-color-error-container);
+  color: var(--md-sys-color-on-error-container);
+}
+
+.add-character-controls {
+  display: flex;
+  gap: 1rem;
+  align-items: flex-end;
 }

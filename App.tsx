@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import { useState, useCallback } from 'react';
 import jsPDF from 'jspdf';
 import StoryInputForm from './components/StoryInputForm';
 import ComicDisplay from './components/ComicDisplay';
@@ -80,11 +80,13 @@ const App: React.FC = () => {
           if (options.generationService === GenerationService.GEMINI) {
             imageUrl = await generateImageForPrompt(
               apiKey, panel.image_prompt, options.aspectRatio,
-              options.imageModel, options.style, options.era
+              options.imageModel, options.style, options.era,
+              options.characters, options.lockSeed
             );
           } else {
             imageUrl = await generateImageForPromptWithPollinations(
-              panel.image_prompt, options.imageModel, options.aspectRatio
+              panel.image_prompt, options.imageModel, options.aspectRatio,
+              options.characters, options.lockSeed
             );
           }
           setComicPanels(prevPanels =>
@@ -231,7 +233,15 @@ const App: React.FC = () => {
       </header>
 
       <main>
-        {isLoading && <LoadingSpinner progress={progress} message={!progress && isLoading ? "Preparing your comic..." : undefined} />}
+        {error && (
+          <div className="error-message-container">
+            <h3>Error</h3>
+            <p>{error}</p>
+            <button onClick={() => setError(null)} className="error-dismiss-btn">
+              <span className="material-icons-outlined">close</span>
+            </button>
+          </div>
+        )}
         
         <section className="api-key-section">
           <div className="form-input-container">
@@ -248,38 +258,36 @@ const App: React.FC = () => {
         </section>
 
         <StoryInputForm
-            onSubmit={handleComicGeneration} isLoading={isLoading}
-            isApiKeyProvided={!!apiKey.trim()} currentProgress={progress}
+          onSubmit={handleComicGeneration}
+          isLoading={isLoading}
+          isApiKeyProvided={!!apiKey.trim()}
+          currentProgress={progress}
         />
 
-        {error && (
-          <div className="error-message-container">
-            <h3 className="type-title-medium">Operation Status</h3>
-            {error.split('\n').map((errMsg, index) => <p key={index}>{errMsg}</p>)}
-            <button onClick={() => setError(null)} className="btn error-dismiss-btn" aria-label="Dismiss message">
-              Dismiss
-            </button>
-          </div>
-        )}
+        {isLoading && <LoadingSpinner progress={progress} message={!progress && isLoading ? "Preparing your comic..." : undefined} />}
 
-        {comicPanels.length > 0 && !isLoading && (
-          <div className="centered-action-button-container">
-            <button
-              onClick={handleDownloadPdf} disabled={isDownloadingPdf}
-              className="btn btn-success" aria-label="Download Comic as PDF"
-            >
-              <span className="material-icons-outlined">download</span>
-              {isDownloadingPdf ? 'Generating PDF...' : 'Download Comic as PDF'}
-            </button>
-          </div>
+        {!isLoading && comicPanels.length > 0 && (
+          <>
+            <ComicDisplay panels={comicPanels} aspectRatioSetting={currentAspectRatio} />
+            <div className="centered-action-button-container">
+              <button
+                onClick={handleDownloadPdf}
+                disabled={isDownloadingPdf}
+                className="btn btn-success btn-full-width"
+              >
+                <span className="material-icons-outlined">download</span>
+                {isDownloadingPdf ? "Generating PDF..." : "Download as PDF"}
+              </button>
+            </div>
+          </>
         )}
-
-        <ComicDisplay panels={comicPanels} aspectRatioSetting={currentAspectRatio} />
       </main>
 
       <footer className="app-footer">
-        <p>Powered by Gemini and Pollinations AI.</p>
-         <p className="footer-fineprint">Comic Creator v3.2 - Final</p>
+        <p>AI Comic Creator - A fun way to bring your stories to life!</p>
+        <p className="footer-fineprint">
+          Images are generated using AI models. Results may vary.
+        </p>
       </footer>
     </div>
   );
