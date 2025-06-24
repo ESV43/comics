@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from 'react';
-import { StoryInputOptions, ComicStyle, ComicEra, AspectRatio, GenerationProgress, CaptionPlacement, GenerationService } from '../types';
+import { useState, useEffect, ChangeEvent, FormEvent } from 'react';
+import type { StoryInputOptions, ComicStyle, ComicEra, AspectRatio, GenerationProgress, CaptionPlacement, CharacterReference } from '../types';
+import { GenerationService } from '../types';
 import {
   AVAILABLE_STYLES,
   AVAILABLE_ERAS,
@@ -25,7 +26,7 @@ interface StoryInputFormProps {
   currentProgress?: GenerationProgress;
 }
 
-const StoryInputForm: React.FC<StoryInputFormProps> = ({ onSubmit, isLoading, isApiKeyProvided, currentProgress }) => {
+const StoryInputForm: React.FC<StoryInputFormProps> = ({ onSubmit, isLoading, isApiKeyProvided, currentProgress }: StoryInputFormProps) => {
   const [story, setStory] = useState('');
   const [style, setStyle] = useState<ComicStyle>(AVAILABLE_STYLES[0].value);
   const [era, setEra] = useState<ComicEra>(AVAILABLE_ERAS[0].value);
@@ -39,6 +40,9 @@ const StoryInputForm: React.FC<StoryInputFormProps> = ({ onSubmit, isLoading, is
   const [pollinationsImageModels, setPollinationsImageModels] = useState<{ value: string; label: string }[]>([]);
   const [pollinationsTextModels, setPollinationsTextModels] = useState<{ value: string; label: string }[]>([]);
   const [arePollinationsModelsLoading, setArePollinationsModelsLoading] = useState(false);
+  const [characters, setCharacters] = useState<CharacterReference[]>([]);
+  const [newCharName, setNewCharName] = useState('');
+  const [lockSeed, setLockSeed] = useState(false);
 
   useEffect(() => {
     if (generationService === GenerationService.POLLINATIONS) {
@@ -57,17 +61,109 @@ const StoryInputForm: React.FC<StoryInputFormProps> = ({ onSubmit, isLoading, is
     }
   }, [generationService]);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleCharImageUpload = (e: ChangeEvent<HTMLInputElement>) => {
+    if (!e.target.files || !e.target.files[0]) {
+      return;
+    }
+
+    if (!newCharName.trim()) {
+      alert("Please enter a character name before uploading an image.");
+      return;
+    }
+
+    if (characters.length >= 5) {
+      alert("Maximum of 5 character references allowed.");
+      return;
+    }
+
+    // Check if character name already exists
+    if (characters.some((char: CharacterReference) => char.name.toLowerCase() === newCharName.trim().toLowerCase())) {
+      alert("A character with this name already exists. Please use a different name.");
+      return;
+    }
+
+    const file = e.target.files[0];
+    
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      alert("Please upload an image file (JPEG, PNG, or WebP).");
+      e.target.value = '';
+      return;
+    }
+
+    // Validate file size (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      alert("Image file size must be less than 5MB.");
+      e.target.value = '';
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (loadEvent: ProgressEvent<FileReader>) => {
+      if (!loadEvent.target?.result) {
+        alert("Failed to read the image file. Please try again.");
+        return;
+      }
+
+      const newCharacter: CharacterReference = {
+        id: `char-${Date.now()}`,
+        name: newCharName.trim(),
+        image: loadEvent.target.result as string,
+      };
+      setCharacters((prev: CharacterReference[]) => [...prev, newCharacter]);
+      setNewCharName('');
+    };
+
+    reader.onerror = () => {
+      alert("Failed to read the image file. Please try again.");
+    };
+
+    reader.readAsDataURL(file);
+    e.target.value = '';
+  };
+
+  const handleRemoveCharacter = (id: string) => {
+    setCharacters((prev: CharacterReference[]) => prev.filter((char: CharacterReference) => char.id !== id));
+  };
+
+  const handleSubmit = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (generationService === GenerationService.GEMINI && !isApiKeyProvided) {
-      alert("Please enter your Gemini API Key above to use the Gemini service.");
       return;
     }
     if (!story.trim()) {
       alert("Please enter a story.");
       return;
     }
-    onSubmit({ story, style, era, aspectRatio, includeCaptions, numPages, imageModel, textModel, captionPlacement, generationService });
+
+    // Validate character references
+    if (characters.length > 0) {
+      const characterNames = characters.map((char: CharacterReference) => char.name.toLowerCase());
+      const storyLower = story.toLowerCase();
+      const unusedCharacters = characters.filter((char: CharacterReference) => !storyLower.includes(char.name.toLowerCase()));
+      
+      if (unusedCharacters.length > 0) {
+        const warning = `Warning: The following characters are not mentioned in your story:\n${unusedCharacters.map(char => char.name).join(', ')}\n\nDo you want to continue anyway?`;
+        if (!window.confirm(warning)) {
+          return;
+        }
+      }
+    }
+
+    onSubmit({
+      story,
+      style,
+      era,
+      aspectRatio,
+      includeCaptions,
+      numPages,
+      imageModel,
+      textModel,
+      captionPlacement,
+      generationService,
+      characters,
+      lockSeed
+    });
   };
 
   const isSubmitDisabled = isLoading || (generationService === GenerationService.GEMINI && !isApiKeyProvided);
@@ -195,15 +291,72 @@ const StoryInputForm: React.FC<StoryInputFormProps> = ({ onSubmit, isLoading, is
         )}
       </div>
 
+      <div className="form-group">
+        <div className="checkbox-group" style={{marginBottom: '0.5rem'}}>
+          <input
+            id="lockSeed"
+            type="checkbox"
+            checked={lockSeed}
+            onChange={(e) => setLockSeed(e.target.checked)}
+            className="checkbox-input"
+          />
+          <label htmlFor="lockSeed" className="checkbox-label">
+            Lock Seed (Maintain Character Consistency)
+          </label>
+        </div>
+        <p className="input-description">
+          When enabled, this will use a fixed seed for image generation to help maintain character consistency.
+        </p>
+      </div>
+
+      {/* Character Reference Section */}
+      <section className="character-reference-section">
+        <label className="form-label" style={{ fontWeight: 600, fontSize: '1rem' }}>Character References (up to 5)</label>
+        <div className="character-list">
+          {characters.map((char) => (
+            <div className="character-chip" key={char.id}>
+              <img src={char.image} alt={char.name} className="character-thumbnail" />
+              <span className="character-name">{char.name}</span>
+              <button type="button" className="character-remove-btn" onClick={() => handleRemoveCharacter(char.id)} title="Remove character">
+                <span className="material-icons-outlined">close</span>
+              </button>
+            </div>
+          ))}
+        </div>
+        {characters.length < 5 && (
+          <div className="add-character-controls">
+            <input
+              type="text"
+              className="form-input"
+              placeholder="Character Name"
+              value={newCharName}
+              onChange={e => setNewCharName(e.target.value)}
+              maxLength={32}
+              style={{ width: '160px' }}
+            />
+            <input
+              type="file"
+              accept="image/*"
+              onChange={handleCharImageUpload}
+              style={{ width: 'auto' }}
+              aria-label="Upload character reference image"
+            />
+          </div>
+        )}
+        <p className="input-description" style={{ marginTop: '0.5rem' }}>
+          Add reference images and names for your main characters to help the AI maintain consistency. Only characters mentioned in your story will be used.
+        </p>
+      </section>
+
       <button
         type="submit" disabled={isSubmitDisabled}
         className="btn btn-primary btn-full-width"
-        aria-label={isSubmitDisabled ? "API Key required for Gemini" : "Create My Comic!"}
+        aria-label={isSubmitDisabled ? (generationService === GenerationService.GEMINI ? "API Key required for Gemini" : undefined) : "Create My Comic!"}
       >
         <span className="material-icons-outlined">auto_awesome</span>
         {isLoading ? 'Generating Your Comic...' : 'Create My Comic!'}
       </button>
-      {isSubmitDisabled && !isLoading && (
+      {isSubmitDisabled && !isLoading && generationService === GenerationService.GEMINI && (
         <p className="input-description" style={{ textAlign: 'center', color: 'var(--md-sys-color-tertiary)'}}>
           Please enter your Gemini API Key to enable comic creation with Gemini.
         </p>
