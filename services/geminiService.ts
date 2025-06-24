@@ -22,6 +22,7 @@ import {
   CharacterSheetDetails,
   PollinationsSceneOutput,
   PollinationsTextModel,
+  CharacterReference,
 } from '../types';
 import { FIXED_IMAGE_SEED } from '../constants';
 
@@ -92,10 +93,31 @@ export const listPollinationsTextModels = async (): Promise<{ value: string; lab
 export const generateImageForPromptWithPollinations = async (
     prompt: string,
     model: string,
-    aspectRatio: AspectRatio
+    aspectRatio: AspectRatio,
+    characters?: CharacterReference[],
+    lockSeed?: boolean
 ): Promise<string> => {
     try {
-        const encodedPrompt = encodeURIComponent(prompt);
+        // Add character references to the prompt if available
+        let finalPrompt = prompt;
+        let referenceImages: string[] = [];
+
+        if (characters && characters.length > 0) {
+            const relevantCharacters = characters.filter(char => 
+                finalPrompt.toLowerCase().includes(char.name.toLowerCase())
+            );
+
+            if (relevantCharacters.length > 0) {
+                const characterPrompts = relevantCharacters.map(char => 
+                    `For character ${char.name}, use this reference image as a guide for facial features and appearance.`
+                );
+                
+                finalPrompt = `${finalPrompt}\n${characterPrompts.join('\n')}`;
+                referenceImages = relevantCharacters.map(char => char.image);
+            }
+        }
+
+        const encodedPrompt = encodeURIComponent(finalPrompt);
         
         const params = new URLSearchParams();
         params.append('model', model);
@@ -114,6 +136,16 @@ export const generateImageForPromptWithPollinations = async (
                 params.append('width', '1024');
                 params.append('height', '1024');
                 break;
+        }
+
+        // Add seed if locking is enabled
+        if (lockSeed) {
+            params.append('seed', FIXED_IMAGE_SEED.toString());
+        }
+
+        // Add character reference images if available
+        if (referenceImages.length > 0) {
+            params.append('reference_images', referenceImages.join(','));
         }
 
         const url = `https://image.pollinations.ai/prompt/${encodedPrompt}?${params.toString()}`;
@@ -240,22 +272,77 @@ export const generateImageForPrompt = async (
   initialImagePrompt: string,
   inputAspectRatio: AspectRatio,
   imageModelName: string,
-  style: ComicStyle | string, 
-  era: ComicEra | string     
+  style: ComicStyle | string,
+  era: ComicEra | string,
+  characters?: CharacterReference[],
+  lockSeed?: boolean
 ): Promise<string> => {
   if (!apiKey) throw new Error("API Key is required for image generation.");
   const ai = new GoogleGenAI({ apiKey });
 
   let apiAspectRatioValue: "1:1" | "9:16" | "16:9";
   switch (inputAspectRatio) {
-    case AspectRatio.SQUARE: apiAspectRatioValue = "1:1"; break;
-    case AspectRatio.PORTRAIT: apiAspectRatioValue = "9:16"; break;
-    case AspectRatio.LANDSCAPE: apiAspectRatioValue = "16:9"; break;
-    default: apiAspectRatioValue = "1:1";
+    case AspectRatio.PORTRAIT:
+      apiAspectRatioValue = "9:16";
+      break;
+    case AspectRatio.LANDSCAPE:
+      apiAspectRatioValue = "16:9";
+      break;
+    default:
+      apiAspectRatioValue = "1:1";
   }
 
-  const augmentedPrompt = `...`; // Full augmented prompt for Gemini
+  // Add character references to the prompt if available
+  let finalPrompt = initialImagePrompt;
+  let characterImages: { data: string; mimeType: string }[] = [];
 
-  // ... rest of original function with retry logic ...
-  return ""; // Placeholder
+  if (characters && characters.length > 0) {
+    const relevantCharacters = characters.filter(char => 
+      finalPrompt.toLowerCase().includes(char.name.toLowerCase())
+    );
+
+    if (relevantCharacters.length > 0) {
+      const characterPrompts = relevantCharacters.map(char => 
+        `For character ${char.name}, use this reference image as a guide for facial features and appearance.`
+      );
+      
+      finalPrompt = `${finalPrompt}\n${characterPrompts.join('\n')}`;
+
+      // Process character images
+      characterImages = relevantCharacters.map(char => {
+        try {
+          const [header, base64Data] = char.image.split(',');
+          const mimeType = header.match(/data:(.*?);/)?.[1] || 'image/jpeg';
+          return { data: base64Data, mimeType };
+        } catch (error) {
+          console.error(`Error processing image for character ${char.name}:`, error);
+          throw new Error(`Failed to process reference image for character ${char.name}`);
+        }
+      });
+    }
+  }
+
+  // Add style and era to the prompt
+  finalPrompt = `${finalPrompt}, in the style of ${style}, ${era}`;
+
+  try {
+    const model = ai.models.getGenerativeModel({ model: imageModelName });
+    const result: SDKGenerateImagesResponse = await model.generateImages({
+      prompt: finalPrompt,
+      aspectRatio: apiAspectRatioValue,
+      ...(lockSeed && { seed: FIXED_IMAGE_SEED }),
+      ...(characterImages.length > 0 && {
+        multimodal: { images: characterImages }
+      })
+    });
+
+    if (!result.images?.[0]) {
+      throw new Error("No image was generated.");
+    }
+
+    return `data:image/png;base64,${result.images[0].data}`;
+  } catch (error) {
+    console.error("Error generating image:", error);
+    throw error;
+  }
 };
